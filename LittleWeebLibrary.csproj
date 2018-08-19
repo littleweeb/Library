@@ -1,0 +1,83 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <Configurations>Debug;Release;Release Android;Debug Android_</Configurations>
+    <Version>0.4.0</Version>
+    <Description>Library containing crossplatform code for the back-end used by LittleWeeb Android &amp; Desktop</Description>
+    <Copyright>MIT</Copyright>
+    <PackageLicenseUrl>https://github.com/EldinZenderink/LittleWeeb/blob/master/LICENSE</PackageLicenseUrl>
+    <PackageProjectUrl>https://github.com/EldinZenderink/LittleWeeb</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/EldinZenderink/LittleWeeb</RepositoryUrl>
+    <RepositoryType>GitHub</RepositoryType>
+    <PackageTags>littleweeb anime irc xdcc download viewer streamer adfree free freeware</PackageTags>
+    <PackageReleaseNotes>First release version of the library and v0.4.0, includes a shitton of new features, completely new code base and more shizzles like that.</PackageReleaseNotes>
+    <ApplicationIcon />
+    <Win32Resource />
+  </PropertyGroup>
+
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DefineConstants>DEBUG;NETSTANDARD;NETSTANDARD2_0;NETSTANDARD;NETSTANDARD2_0;NETSTANDARD;NETSTANDARD2_0;NETSTANDARD;NETSTANDARD2_0;NETSTANDARD;NETSTANDARD2_0;NETSTANDARD;NETSTANDARD2_0;DEBUG;NETSTANDARD;NETSTANDARD2_0</DefineConstants>
+    <Optimize>true</Optimize>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <PackageVersion>$(Version)-Desktop-$([System.DateTime]::UtcNow.ToString(yyyyMMdd-HHmm))</PackageVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug Android_|AnyCPU'">
+    <DefineConstants>__ANDROID__;RELEASE;NETSTANDARD;NETSTANDARD2_0;RELEASE;NETSTANDARD;NETSTANDARD2_0;DEBUG ANDROID_;NETSTANDARD;NETSTANDARD2_0</DefineConstants>
+    <Optimize>true</Optimize>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+
+    <PackageVersion>$(Version)--Android-$([System.DateTime]::UtcNow.ToString(yyyyMMdd-HHmm))</PackageVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Android|AnyCPU'">
+    <DefineConstants>TRACE;__ANDROID__;RELEASE ANDROID;NETSTANDARD;NETSTANDARD2_0;RELEASE ANDROID;NETSTANDARD;NETSTANDARD2_0;RELEASE ANDROID;NETSTANDARD;NETSTANDARD2_0;__ANDROID__;;RELEASE ANDROID;NETSTANDARD;NETSTANDARD2_0</DefineConstants>
+    <Optimize>true</Optimize>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <PackageVersion>$(Version)--Android-$([System.DateTime]::UtcNow.ToString(yyyyMMdd-HHmm))</PackageVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <DefineConstants>RELEASE;NETSTANDARD;NETSTANDARD2_0;RELEASE;NETSTANDARD;NETSTANDARD2_0;RELEASE;NETSTANDARD;NETSTANDARD2_0</DefineConstants>
+    <Optimize>true</Optimize>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <PackageVersion>$(Version)--Desktop-$([System.DateTime]::UtcNow.ToString(yyyyMMdd-HHmm))</PackageVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
+    <PackageReference Include="SimpleIRCLib" Version="2.1.1" />
+    <PackageReference Include="SimpleWebsocketServer" Version="1.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Handlers\Interfaces\" />
+    <Folder Include="Services\Interfaces\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Mono.Android">
+      <HintPath>SpecialLibraries\Mono.Android.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Properties\Resources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+
+</Project>
