@@ -4,6 +4,7 @@ using LittleWeebLibrary.GlobalInterfaces;
 using LittleWeebLibrary.Models;
 using LittleWeebLibrary.Settings;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -87,7 +88,6 @@ namespace LittleWeebLibrary.Handlers
                         {
                             message = "Succesfully opened file with path: " + fullFilePath
                         };
-
                         return report.ToJson();
                     }
                     Thread.Sleep(200);
