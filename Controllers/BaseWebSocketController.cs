@@ -1,9 +1,7 @@
 ﻿using LittleWeebLibrary.GlobalInterfaces;
 using LittleWeebLibrary.EventArguments;
-using LittleWeebLibrary.Settings;
 using System;
 using System.Collections.Generic;
-using System.Text;
 using LittleWeebLibrary.Handlers;
 
 namespace LittleWeebLibrary.Controllers

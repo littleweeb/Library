@@ -1,13 +1,10 @@
 ﻿using LittleWeebLibrary.EventArguments;
 using LittleWeebLibrary.GlobalInterfaces;
 using LittleWeebLibrary.Models;
-using LittleWeebLibrary.Settings;
 using LittleWeebLibrary.StaticClasses;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Text;
 
 namespace LittleWeebLibrary.Handlers
 {

@@ -1,9 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 using LittleWeebLibrary.GlobalInterfaces;
 using LittleWeebLibrary.EventArguments;
-using LittleWeebLibrary.Settings;
 using LittleWeebLibrary.Services;
 using Newtonsoft.Json.Linq;
 using LittleWeebLibrary.Handlers;

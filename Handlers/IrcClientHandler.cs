@@ -1,13 +1,10 @@
 ﻿using LittleWeebLibrary.EventArguments;
 using LittleWeebLibrary.Settings;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 using SimpleIRCLib;
 using LittleWeebLibrary.Models;
 using LittleWeebLibrary.GlobalInterfaces;
-using LittleWeebLibrary.Handlers;
 using System.IO;
 
 namespace LittleWeebLibrary.Handlers
