@@ -94,7 +94,7 @@ namespace LittleWeebLibrary.Handlers
 #if __ANDROID__
                 DebugPath = Path.Combine(Path.Combine(Android.OS.Environment.ExternalStorageDirectory.AbsolutePath, "LittleWeeb"), "DebugLog");
 #else
-                DebugPath = Path.Combine(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LittleWeeb"), "DebugLog");
+                DebugPath = Path.Combine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments), "LittleWeeb"), "DebugLog");
 #endif
                 if (!Directory.Exists(DebugPath))
                 {

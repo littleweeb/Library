@@ -33,7 +33,7 @@ namespace LittleWeebLibrary.Handlers
 #if __ANDROID__
             fileHistoryPath = Path.Combine(Path.Combine(Android.OS.Environment.ExternalStorageDirectory.AbsolutePath, "LittleWeeb"), "FileHistory");
 #else
-            fileHistoryPath = Path.Combine(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LittleWeeb"), "FileHistory");
+            fileHistoryPath = Path.Combine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments), "LittleWeeb"), "FileHistory");
 #endif
             fileName = "FileHistory.json";
 
