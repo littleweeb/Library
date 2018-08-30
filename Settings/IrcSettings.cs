@@ -14,7 +14,7 @@ namespace LittleWeebLibrary.Settings
 #if __ANDROID__
         public string fullfilepath  {get;set;}=  Path.Combine(Path.Combine(Android.OS.Environment.ExternalStorageDirectory.AbsolutePath, "LittleWeeb"), "Downloads");
 #else
-        public string fullfilepath{ get; set; } = Path.Combine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments), "LittleWeeb"), "Downloads");
+        public string fullfilepath{ get; set; } = Path.Combine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "LittleWeeb"), "Downloads");
 #endif
 
         public override string ToString()

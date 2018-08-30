@@ -39,7 +39,7 @@ namespace LittleWeebLibrary.Handlers
 #if __ANDROID__
             BasePath = Path.Combine(Android.OS.Environment.ExternalStorageDirectory.Path, "LittleWeeb");
 #else
-            BasePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments), "LittleWeeb");
+            BasePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "LittleWeeb");
 #endif
 
             if (!Directory.Exists(BasePath))
