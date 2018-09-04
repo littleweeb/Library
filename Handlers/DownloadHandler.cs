@@ -84,6 +84,9 @@ namespace LittleWeebLibrary.Handlers
             });
             try
             {
+                if (download.filesize.Contains(".")){
+                    download.filesize = ((int)(double.Parse(download.filesize, System.Globalization.CultureInfo.InvariantCulture) * 1024)).ToString();
+                }
                 if (UtilityMethods.GetFreeSpace(IrcSettings.fullfilepath) > (int.Parse(download.filesize) * 1024 * 1024))
                 {
 
