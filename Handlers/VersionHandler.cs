@@ -1,4 +1,5 @@
 ﻿
+using Android.Content.Res;
 using LittleWeebLibrary.EventArguments;
 using LittleWeebLibrary.GlobalInterfaces;
 using LittleWeebLibrary.Models;
@@ -304,9 +305,20 @@ namespace LittleWeebLibrary.Handlers
 
             try
             {
-                string versionPath = Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location), "version.json");
 
-                string contents = File.ReadAllText(versionPath);
+
+                string contents = "";
+#if __ANDROID__               
+                var stream = Android.App.Application.Context.Assets.Open("version.json");
+
+                StreamReader sr = new StreamReader(stream);
+                contents = sr.ReadToEnd();
+                sr.Close();
+#else
+                string versionPath = Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location), "version.json");
+                contents = File.ReadAllText(versionPath);
+#endif
+
 
                 JObject currentVersionJson = JObject.Parse(contents);
 
