@@ -1,31 +1,33 @@
-﻿using Android.Content;
-using LittleWeebLibrary.EventArguments;
+﻿using LittleWeebLibrary.EventArguments;
 using LittleWeebLibrary.GlobalInterfaces;
 using LittleWeebLibrary.Models;
 using LittleWeebLibrary.Settings;
+using LittleWeebLibrary.StaticClasses;
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
+#if __ANDROID__
+using Android.Content;
+#endif
+
 namespace LittleWeebLibrary.Handlers
 {
     public interface IFileHandler
     {
-        event EventHandler<FileHandlerDebugEventArgs> OnFileHandlerDebugEvent;
-        Task<string> OpenFile(string filePath, string fileName = null);
+        string OpenFile(string filePath, string fileName = null);
         string DeleteFile(string filePath, string fileName = null);
     }
     public class FileHandler : IFileHandler, IDebugEvent, ISettingsInterface
     {
-        public event EventHandler<FileHandlerDebugEventArgs> OnFileHandlerDebugEvent;
         public event EventHandler<BaseDebugArgs> OnDebugEvent;
 
 
         private LittleWeebSettings LittleWeebSettings;
 
-        public async Task<string> OpenFile(string filePath, string fileName = null)
+        public string OpenFile(string filePath, string fileName = null)
         {
             OnDebugEvent?.Invoke(this, new BaseDebugArgs()
             {
@@ -77,12 +79,24 @@ namespace LittleWeebLibrary.Handlers
                         intent.SetFlags(ActivityFlags.ClearWhenTaskReset | ActivityFlags.NewTask);
                         Android.App.Application.Context.StartActivity(intent);
 #else
-                        var p = new Process();
-                        p.StartInfo = new ProcessStartInfo(fullFilePath)
+
+
+                        if (UtilityMethods.CheckOperatingSystems() == UtilityMethods.OperatingSystems.OsX)
                         {
-                            UseShellExecute = true
-                        };
-                        p.Start();
+                            Process.Start("open", fullFilePath);
+                        }
+                        else
+                        {
+                            var p = new Process();
+                            p.StartInfo = new ProcessStartInfo(fullFilePath)
+                            {
+                                UseShellExecute = true
+                            };
+                            p.Start();
+                        }
+
+
+                       
 #endif
                         JsonSuccesReport report = new JsonSuccesReport()
                         {

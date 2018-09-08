@@ -28,7 +28,6 @@ namespace LittleWeebLibrary.Handlers
         private List<JsonDownloadInfo> DownloadQueue;
         private IIrcClientHandler IrcClientHandler;
         private bool Stop;
-        private bool IsDownloading;
         private JsonDownloadInfo CurrentlyDownloading;
         private IrcSettings IrcSettings;
 
@@ -363,14 +362,8 @@ namespace LittleWeebLibrary.Handlers
 
             if (args.DownloadStatus == "COMPLETED" || args.DownloadStatus == "FAILED" || args.DownloadStatus == "ABORTED")
             {
-                IsDownloading = false;
                 CurrentlyDownloading = new JsonDownloadInfo();
             }
-            else
-            {
-                IsDownloading = true;
-            }
-
 
         }
 
@@ -384,110 +377,112 @@ namespace LittleWeebLibrary.Handlers
                 DebugType = 0
             });
 
-            int retries = 0;
-            while (!Stop) {
-
-                Thread.Sleep(500);
-                if (DownloadQueue.Count > 0)
+            await Task.Run(() =>
+            {
+                int retries = 0;
+                while (!Stop)
                 {
-                    JsonDownloadInfo toDownload = DownloadQueue[0];
-                    if (retries > 2)
+
+                    Thread.Sleep(500);
+                    if (DownloadQueue.Count > 0)
                     {
-                        IsDownloading = false;
-                        DownloadQueue.RemoveAt(0);
-                        retries = 0;
-                        OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+                        JsonDownloadInfo toDownload = DownloadQueue[0];
+                        if (retries > 2)
                         {
-                            DebugMessage = "Could not start download after 3 tries :(, removing download from queue. ",
-                            DebugSource = this.GetType().Name,
-                            DebugSourceType = 3,
-                            DebugType = 3
-                        });
-
-                        OnDownloadUpdateEvent?.Invoke(this, new DownloadUpdateEventArgs()
-                        {
-                            id = CurrentlyDownloading.id,
-                            animeid = CurrentlyDownloading.animeInfo.animeid,
-                            animeTitle = CurrentlyDownloading.animeInfo.title,
-                            animeCoverSmall = CurrentlyDownloading.animeInfo.cover_small,
-                            animeCoverOriginal = CurrentlyDownloading.animeInfo.cover_original,
-                            episodeNumber = CurrentlyDownloading.episodeNumber,
-                            bot = CurrentlyDownloading.bot,
-                            pack = CurrentlyDownloading.pack,
-                            progress = "0",
-                            speed = "0",
-                            status = "FAILED",
-                            filename = CurrentlyDownloading.filename,
-                            filesize = CurrentlyDownloading.filesize,
-                            fullfilepath= CurrentlyDownloading.fullfilepath,
-                            downloadIndex = CurrentlyDownloading.downloadIndex
-                        });
-
-                        CurrentlyDownloading = new JsonDownloadInfo();
-                    }
-                    else
-                    {
-                        if (!IrcClientHandler.IsDownloading())
-                        {
-                            IsDownloading = false;
-                            Thread.Sleep(500);
-
-
+                            DownloadQueue.RemoveAt(0);
+                            retries = 0;
                             OnDebugEvent?.Invoke(this, new BaseDebugArgs()
                             {
-                                DebugMessage = "Send following download to irc server: " + toDownload.ToString(),
+                                DebugMessage = "Could not start download after 3 tries :(, removing download from queue. ",
                                 DebugSource = this.GetType().Name,
-                                DebugSourceType = 1,
+                                DebugSourceType = 3,
                                 DebugType = 3
                             });
 
-                            CurrentlyDownloading = toDownload;
-                            IrcClientHandler.StartDownload(toDownload);
-                            int timeOutCount = 0;
-                            bool timedOut = true;
-
-                            while (timeOutCount < 5)
+                            OnDownloadUpdateEvent?.Invoke(this, new DownloadUpdateEventArgs()
                             {
-                                if (IrcClientHandler.IsDownloading())
-                                {
-                                    timedOut = false;
-                                    break;
-                                }
-                                Thread.Sleep(1000);
-                                timeOutCount++;
-                            }
+                                id = CurrentlyDownloading.id,
+                                animeid = CurrentlyDownloading.animeInfo.animeid,
+                                animeTitle = CurrentlyDownloading.animeInfo.title,
+                                animeCoverSmall = CurrentlyDownloading.animeInfo.cover_small,
+                                animeCoverOriginal = CurrentlyDownloading.animeInfo.cover_original,
+                                episodeNumber = CurrentlyDownloading.episodeNumber,
+                                bot = CurrentlyDownloading.bot,
+                                pack = CurrentlyDownloading.pack,
+                                progress = "0",
+                                speed = "0",
+                                status = "FAILED",
+                                filename = CurrentlyDownloading.filename,
+                                filesize = CurrentlyDownloading.filesize,
+                                fullfilepath = CurrentlyDownloading.fullfilepath,
+                                downloadIndex = CurrentlyDownloading.downloadIndex
+                            });
 
-                            if (!timedOut)
+                            CurrentlyDownloading = new JsonDownloadInfo();
+                        }
+                        else
+                        {
+                            if (!IrcClientHandler.IsDownloading())
                             {
+                                Thread.Sleep(500);
+
 
                                 OnDebugEvent?.Invoke(this, new BaseDebugArgs()
                                 {
-                                    DebugMessage = "Download succesfully initiated, wait for irc download event to be sure.",
+                                    DebugMessage = "Send following download to irc server: " + toDownload.ToString(),
                                     DebugSource = this.GetType().Name,
-                                    DebugSourceType = 3,
-                                    DebugType = 2
-                                });
-
-                                IsDownloading = true;
-                                DownloadQueue.RemoveAt(0);
-                            }
-                            else
-                            {
-
-                                CurrentlyDownloading = new JsonDownloadInfo();
-                                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                                {
-                                    DebugMessage = "Could not start download :(, retrying.  ",
-                                    DebugSource = this.GetType().Name,
-                                    DebugSourceType = 3,
+                                    DebugSourceType = 1,
                                     DebugType = 3
                                 });
-                                retries++;
+
+                                CurrentlyDownloading = toDownload;
+                                IrcClientHandler.StartDownload(toDownload);
+                                int timeOutCount = 0;
+                                bool timedOut = true;
+
+                                while (timeOutCount < 5)
+                                {
+                                    if (IrcClientHandler.IsDownloading())
+                                    {
+                                        timedOut = false;
+                                        break;
+                                    }
+                                    Thread.Sleep(1000);
+                                    timeOutCount++;
+                                }
+
+                                if (!timedOut)
+                                {
+
+                                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+                                    {
+                                        DebugMessage = "Download succesfully initiated, wait for irc download event to be sure.",
+                                        DebugSource = this.GetType().Name,
+                                        DebugSourceType = 3,
+                                        DebugType = 2
+                                    });
+
+                                    DownloadQueue.RemoveAt(0);
+                                }
+                                else
+                                {
+
+                                    CurrentlyDownloading = new JsonDownloadInfo();
+                                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+                                    {
+                                        DebugMessage = "Could not start download :(, retrying.  ",
+                                        DebugSource = this.GetType().Name,
+                                        DebugSourceType = 3,
+                                        DebugType = 3
+                                    });
+                                    retries++;
+                                }
                             }
                         }
-                    }                    
+                    }
                 }
-            }            
+            });
+           
         }
 
         public void SetIrcSettings(IrcSettings settings)

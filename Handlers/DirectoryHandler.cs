@@ -347,9 +347,13 @@ namespace LittleWeebLibrary.Handlers
                 intent.SetFlags(Android.Content.ActivityFlags.ClearWhenTaskReset | Android.Content.ActivityFlags.NewTask);
                 Android.App.Application.Context.StartActivity(Android.Content.Intent.CreateChooser(intent, "Choose File Explorer"));
 #else
-                if (UtilityMethods.IsLinux())
+                if (UtilityMethods.CheckOperatingSystems() == UtilityMethods.OperatingSystems.Linux)
                 {
                     Process.Start("xdg-open", directoryPath);
+                }
+                else if (UtilityMethods.CheckOperatingSystems() == UtilityMethods.OperatingSystems.OsX)
+                {
+                    Process.Start("open", directoryPath);
                 }
                 else
                 {

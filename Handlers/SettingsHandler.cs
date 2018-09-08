@@ -62,8 +62,7 @@ namespace LittleWeebLibrary.Handlers
                     DebugLevel = new List<int>() { 0, 1, 2, 3, 4, 5 },
                     DebugType = new List<int>() { 0, 1, 2, 3, 4},
                     RandomUsernameLength = 6,
-                    MaxDebugLogSize = 2000,
-                    Version = "v0.4.0"
+                    MaxDebugLogSize = 2000
                 });
             }
             if (!File.Exists(Path.Combine(SettingsPath, ircSettingsName)))

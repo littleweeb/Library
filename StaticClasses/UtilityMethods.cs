@@ -6,6 +6,15 @@ namespace LittleWeebLibrary.StaticClasses
 {
     public class UtilityMethods
     {
+
+        public enum OperatingSystems
+        {
+            Windows,
+            OsX,
+            Linux,
+            Unknown
+        }
+
         public static string GenerateUsername(int requestedLength)
         {
             
@@ -48,9 +57,25 @@ namespace LittleWeebLibrary.StaticClasses
 
         }
 
-        public static bool IsLinux()
+        public static OperatingSystems CheckOperatingSystems()
         {
-            return RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ||RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) {
+                return OperatingSystems.Linux;
+            }
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                return OperatingSystems.OsX;
+            }
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                return OperatingSystems.Windows;
+            }
+
+            return OperatingSystems.Unknown;
+
         }
     }
 }

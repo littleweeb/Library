@@ -16,7 +16,6 @@ namespace LittleWeebLibrary.Services
     {
         public event EventHandler<BaseDebugArgs> OnDebugEvent;
 
-
         private readonly IWebSocketHandler WebSocketHandler;
         private readonly IFileHandler FileHandler;
         private readonly IFileHistoryHandler FileHistoryHandler;
@@ -129,7 +128,7 @@ namespace LittleWeebLibrary.Services
 
                 if (filePath != null)
                 {
-                    string result = await FileHandler.OpenFile(filePath);
+                    string result = FileHandler.OpenFile(filePath);
                     await WebSocketHandler.SendMessage(result);
                 }
                 else

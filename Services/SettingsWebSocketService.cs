@@ -45,7 +45,6 @@ namespace LittleWeebLibrary.Services
         private ISettingsInterface DownloadHandlerSettings;
         private ISettingsInterface DirectoryWebSocketServiceSettings;
         private ISettingsInterface IrcWebSocketServiceSettings;
-        private ISettingsInterface DirectoryHandlerSettings;
         private LittleWeebSettings LittleWeebSettings;
         private IrcSettings IrcSettings;
 
@@ -138,7 +137,6 @@ namespace LittleWeebLibrary.Services
             {
                 port = LittleWeebSettings.Port,
                 local = LittleWeebSettings.Local,
-                version = LittleWeebSettings.Version,
                 randomusernamelength = LittleWeebSettings.RandomUsernameLength,
                 debuglevel = LittleWeebSettings.DebugLevel,
                 debugtype = LittleWeebSettings.DebugType,

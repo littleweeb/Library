@@ -7,7 +7,6 @@ namespace LittleWeebLibrary.Settings
     {
         public int Port { get; set; }
         public bool Local { get; set; } 
-        public string Version { get; set; }
         public int RandomUsernameLength { get; set; }
         public List<int> DebugLevel { get; set; }
         public List<int> DebugType { get; set; }
@@ -18,7 +17,6 @@ namespace LittleWeebLibrary.Settings
             string toReturn = string.Empty;
             toReturn += "Port: " + Port.ToString() + Environment.NewLine;
             toReturn += "Local: " + Local.ToString() + Environment.NewLine;
-            toReturn += "Version: " + Version + Environment.NewLine;
             toReturn += "RandomUserNameLength:: " + RandomUsernameLength.ToString() + Environment.NewLine;
             toReturn += "DebugLevel: ";
             foreach (int debugLevel in DebugLevel) {

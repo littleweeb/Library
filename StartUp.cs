@@ -6,7 +6,7 @@ using LittleWeebLibrary.Services;
 using System.Collections.Generic;
 using System.Diagnostics;
 
-//testbuild commit
+
 namespace LittleWeebLibrary
 {
     public class StartUp
@@ -21,6 +21,7 @@ namespace LittleWeebLibrary
         private readonly IIrcClientHandler IrcClientHandler;
         private readonly IDownloadHandler DownloadHandler;
         private readonly IDebugHandler DebugHandler;
+        private readonly IVersionHandler VersionHandler;
 
         //services
         private readonly IDirectoryWebSocketService DirectoryWebSocketService;
@@ -28,6 +29,7 @@ namespace LittleWeebLibrary
         private readonly IFileWebSocketService FileWebSocketService;
         private readonly IIrcWebSocketService IrcWebSocketService;
         private readonly ISettingsWebSocketService SettingsWebSocketService;
+        private readonly IVersionWebSocketService VersionWebSocketService;
 
         //controllers
         private readonly ISubWebSocketController DirectoryWebSocketController;
@@ -35,6 +37,7 @@ namespace LittleWeebLibrary
         private readonly ISubWebSocketController FileWebSocketController;
         private readonly ISubWebSocketController IrcWebSocketController;
         private readonly ISubWebSocketController SettingsWebSocketController;
+        private readonly ISubWebSocketController VersionWebSocketController;
 
         public StartUp()
         {
@@ -44,6 +47,7 @@ namespace LittleWeebLibrary
             SettingsHandler =       new SettingsHandler();
             FileHistoryHandler =    new FileHistoryHandler();
             FileHandler =           new FileHandler();
+            VersionHandler =        new VersionHandler();
             WebSocketHandler =      new WebSocketHandler(SettingsHandler);
             IrcClientHandler =      new IrcClientHandler(SettingsHandler);
             DownloadHandler =       new DownloadHandler(IrcClientHandler);
@@ -55,6 +59,7 @@ namespace LittleWeebLibrary
             FileWebSocketService =      new FileWebSocketService(WebSocketHandler, FileHandler, FileHistoryHandler, DownloadHandler);
             IrcWebSocketService =       new IrcWebSocketService(WebSocketHandler, IrcClientHandler, SettingsHandler);
             SettingsWebSocketService =  new SettingsWebSocketService(WebSocketHandler, DirectoryHandler);
+            VersionWebSocketService =   new VersionWebSocketService(WebSocketHandler, VersionHandler);
 
 
             //Controllers
@@ -63,6 +68,7 @@ namespace LittleWeebLibrary
             FileWebSocketController =       new FileWebSocketController(WebSocketHandler, FileWebSocketService);
             IrcWebSocketController =        new IrcWebSocketController(WebSocketHandler, IrcWebSocketService);
             SettingsWebSocketController =   new SettingsWebSocketController(WebSocketHandler, SettingsWebSocketService);
+            VersionWebSocketController =    new VersionWebSocketController(WebSocketHandler, VersionWebSocketService);
 
             IBaseWebSocketController baseWebSocketController = new BaseWebSocketController(WebSocketHandler);
             //start debugh handler registering all the handlers, services and controllers as IDebugEvent interface.
@@ -84,7 +90,8 @@ namespace LittleWeebLibrary
                 DownloadWebSocketController,
                 FileWebSocketController,
                 IrcWebSocketController,
-                SettingsWebSocketController
+                SettingsWebSocketController,
+                VersionWebSocketController
             });
 
             DebugHandler.SetDebugEvents(new List<IDebugEvent>()
@@ -96,6 +103,7 @@ namespace LittleWeebLibrary
                 DirectoryHandler as IDebugEvent,
                 IrcClientHandler as IDebugEvent,
                 DownloadHandler as IDebugEvent,
+                VersionHandler as IDebugEvent,
                 DirectoryWebSocketService as IDebugEvent,
                 DownloadWebSocketService as IDebugEvent,
                 FileWebSocketService as IDebugEvent,
@@ -106,18 +114,16 @@ namespace LittleWeebLibrary
                 FileWebSocketController as IDebugEvent,
                 IrcWebSocketController as IDebugEvent,
                 SettingsWebSocketController as IDebugEvent,
-                baseWebSocketController as IDebugEvent
+                VersionWebSocketService as IDebugEvent,
+                baseWebSocketController as IDebugEvent,
 
             });
-
-
-            Debug.WriteLine("Finished initiating.");
+            
 
         }
 
         public void Start()
         {
-            Debug.WriteLine("Starting websocket server.");
             WebSocketHandler.StartServer();
         }
 
