@@ -71,8 +71,11 @@ namespace LittleWeebLibrary.Controllers
                                 case "add_download":
                                     DownloadWebSocketService.AddDownload(extra);
                                     break;
+                                case "add_downloads":
+                                    DownloadWebSocketService.AddDownloads(extra);
+                                    break;
                                 case "abort_download":
-                                    DownloadWebSocketService.RemoveDownload(extra);
+                                    DownloadWebSocketService.AbortDownload(extra);
                                     break;
                                 case "remove_download":
                                     DownloadWebSocketService.RemoveDownload(extra);

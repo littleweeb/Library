@@ -5,12 +5,15 @@ using LittleWeebLibrary.Models;
 using LittleWeebLibrary.Settings;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Generic;
 
 namespace LittleWeebLibrary.Services
 {
     public interface IDownloadWebSocketService
     {
         void AddDownload(JObject downloadJson);
+        void AddDownloads(JObject downloadJsonBatch);
+        void AbortDownload(JObject downloadJson);
         void RemoveDownload(JObject downloadJson);
         void Openfullfilepath();
         void GetCurrentFileHistory();
@@ -161,21 +164,17 @@ namespace LittleWeebLibrary.Services
                 {
 
                     result = DownloadHandler.RemoveDownload(id, null);
-
+                    WebSocketHandler.SendMessage(result);
                     string toRemove = FileHistoryHandler.RemoveFileFromFileHistory(id, null);
-
                     string resultRemove = FileHandler.DeleteFile(toRemove);
-
                     WebSocketHandler.SendMessage(resultRemove);
                 }
                 else if (filePath != null)
                 {
                     result = DownloadHandler.RemoveDownload(null, filePath);
-
+                    WebSocketHandler.SendMessage(result);
                     string toRemove = FileHistoryHandler.RemoveFileFromFileHistory(null, filePath);
-
                     string resultRemove = FileHandler.DeleteFile(toRemove);
-
                     WebSocketHandler.SendMessage(resultRemove);
                 }
                 else
@@ -330,6 +329,115 @@ namespace LittleWeebLibrary.Services
                 DebugType = 0
             });
             LittleWeebSettings = settings;
+        }
+
+        public void AbortDownload(JObject downloadJson)
+        {
+            string id = downloadJson.Value<string>("id");
+            string filePath = downloadJson.Value<string>("path");
+            if (id != null)
+            {
+
+                string result = DownloadHandler.AbortDownload(id);
+                WebSocketHandler.SendMessage(result);
+            }
+            else if (filePath != null)
+            {
+                string result = DownloadHandler.AbortDownload(null, filePath);
+                WebSocketHandler.SendMessage(result);
+            }
+            else
+            {
+                JsonError error = new JsonError()
+                {
+                    type = "parse_download_to_abort_error",
+                    errormessage = "Neither id or file path have been defined!",
+                    errortype = "warning",
+                    exception = "none"
+                };
+                WebSocketHandler.SendMessage(error.ToJson());
+            }
+        }
+
+        public void AddDownloads(JObject downloadJsonBatch)
+        {
+            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+            {
+                DebugMessage = "AddDownloads called.",
+                DebugSource = this.GetType().Name,
+                DebugSourceType = 1,
+                DebugType = 0
+            });
+            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+            {
+                DebugMessage = downloadJsonBatch.ToString(),
+                DebugSource = this.GetType().Name,
+                DebugSourceType = 1,
+                DebugType = 1
+            });
+
+            try
+            {
+
+                JArray listWithDownloads = downloadJsonBatch.Value<JArray>("batch");
+
+                List<JsonDownloadInfo> batch = new List<JsonDownloadInfo>();
+
+                foreach (JObject downloadJson in listWithDownloads)
+                {
+                    JsonDownloadInfo downloadInfo = new JsonDownloadInfo()
+                    {
+                        animeInfo = new JsonAnimeInfo()
+                        {
+                            animeid = downloadJson.Value<JObject>("animeInfo").Value<string>("animeid"),
+                            title = downloadJson.Value<JObject>("animeInfo").Value<string>("title"),
+                            cover_original = downloadJson.Value<JObject>("animeInfo").Value<string>("cover_original"),
+                            cover_small = downloadJson.Value<JObject>("animeInfo").Value<string>("cover_small")
+                        },
+                        id = downloadJson.Value<string>("id"),
+                        episodeNumber = downloadJson.Value<string>("episodeNumber"),
+                        pack = downloadJson.Value<string>("pack"),
+                        bot = downloadJson.Value<string>("bot"),
+                        fullfilepath = downloadJson.Value<string>("dir"),
+                        filename = downloadJson.Value<string>("filename"),
+                        progress = downloadJson.Value<string>("progress"),
+                        speed = downloadJson.Value<string>("speed"),
+                        status = downloadJson.Value<string>("status"),
+                        filesize = downloadJson.Value<string>("filesize")
+                    };
+
+                    LastDownloadedInfo = downloadInfo;
+                    batch.Add(downloadInfo);
+                }
+                
+
+
+                string result = DownloadHandler.AddDownloads(batch);
+
+                WebSocketHandler.SendMessage(result);
+            }
+            catch (Exception e)
+            {
+
+                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+                {
+                    DebugSource = this.GetType().Name,
+                    DebugMessage = e.ToString(),
+                    DebugSourceType = 1,
+                    DebugType = 4
+                });
+
+                JsonError error = new JsonError()
+                {
+                    type = "parse_downloads_to_add_error",
+                    errormessage = "Could not parse json containing downloads to add information.",
+                    errortype = "exception",
+                    exception = e.ToString()
+                };
+
+
+                WebSocketHandler.SendMessage(error.ToJson());
+            }
         }
     }
 }

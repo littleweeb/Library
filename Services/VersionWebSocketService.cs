@@ -64,33 +64,92 @@ namespace LittleWeebLibrary.Services
 
             JsonVersionInfo currentVersion = VersionHandler.GetLocalVersion();
 
-            if (versionInfoDevelop.newversion == currentVersion.currentversion && versionInfoDevelop.newbuild == currentVersion.currentbuild)
+            try
             {
-                versionInfoDevelop.update_available = false;
+
+                if (versionInfoDevelop.newversion != "Not Found" && currentVersion.currentversion != "Not Found")
+                {
+                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+                    {
+                        DebugMessage = "Current: " + currentVersion.ToJson(),
+                        DebugSource = this.GetType().Name,
+                        DebugSourceType = 1,
+                        DebugType = 2
+                    });
+
+                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+                    {
+                        DebugMessage = "Develop: " + versionInfoDevelop.ToJson(),
+                        DebugSource = this.GetType().Name,
+                        DebugSourceType = 1,
+                        DebugType = 2
+                    });
+
+                    int currentBuild = int.Parse(currentVersion.currentbuild);
+                    int newBuild = int.Parse(versionInfoDevelop.newbuild);
+
+                    if (versionInfoDevelop.newversion == currentVersion.currentversion && currentBuild >= newBuild)
+                    {
+                        versionInfoDevelop.update_available = false;
+                    }
+                    else
+                    {
+                        versionInfoDevelop.update_available = true;
+                    }
+
+                }
+
+                if (versionInfoRelease.newversion != "Not Found" && currentVersion.currentversion != "Not Found")
+                {
+                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+                    {
+                        DebugMessage = "Current: " + currentVersion.ToJson(),
+                        DebugSource = this.GetType().Name,
+                        DebugSourceType = 1,
+                        DebugType = 2
+                    });
+
+                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+                    {
+                        DebugMessage = "Release: " + versionInfoRelease.ToJson(),
+                        DebugSource = this.GetType().Name,
+                        DebugSourceType = 1,
+                        DebugType = 2
+                    });
+                    int currentBuild = int.Parse(currentVersion.currentbuild);
+                    int newBuild = int.Parse(versionInfoRelease.newbuild);
+                    if (versionInfoRelease.newversion == currentVersion.currentversion && currentBuild >= newBuild)
+                    {
+                        versionInfoRelease.update_available = false;
+                    }
+                    else
+                    {
+                        versionInfoRelease.update_available = true;
+                    }
+
+                }
+
+                versionInfoDevelop.currentbuild = currentVersion.currentbuild;
+                versionInfoDevelop.currentversion = currentVersion.currentversion;
+
+                await WebSocketHandler.SendMessage(versionInfoDevelop.ToJson());
+
+                versionInfoRelease.currentbuild = currentVersion.currentbuild;
+                versionInfoRelease.currentversion = currentVersion.currentversion;
+
+                await WebSocketHandler.SendMessage(versionInfoRelease.ToJson());
             }
-            else if( versionInfoDevelop.newversion != "Not Found")
+            catch (Exception e)
             {
-                versionInfoDevelop.update_available = true;
+                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+                {
+                    DebugMessage = e.ToString(),
+                    DebugSource = this.GetType().Name,
+                    DebugSourceType = 1,
+                    DebugType = 4
+                });
             }
 
-            if (versionInfoRelease.newversion == currentVersion.currentversion && versionInfoRelease.newbuild == currentVersion.currentbuild )
-            {
-                versionInfoRelease.update_available = false;
-            }
-            else if(versionInfoRelease.newversion != "Not Found")
-            {
-                versionInfoRelease.update_available = true;
-            }
-
-            versionInfoDevelop.currentbuild = currentVersion.currentbuild;
-            versionInfoDevelop.currentversion = currentVersion.currentversion;
-
-            await WebSocketHandler.SendMessage(JsonConvert.SerializeObject(versionInfoDevelop));
-
-            versionInfoRelease.currentbuild = currentVersion.currentbuild;
-            versionInfoRelease.currentversion = currentVersion.currentversion;
-
-            await WebSocketHandler.SendMessage(JsonConvert.SerializeObject(versionInfoRelease));
 
         }
     }

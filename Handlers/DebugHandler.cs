@@ -158,7 +158,7 @@ namespace LittleWeebLibrary.Handlers
                         debugSourceType = DebugSourceTypes[sourceType];
                     }
 
-                    string toWriteString = DebugTypes[debugType] + "|" + source + "|" + debugSourceType + "|" + toWrite + "|" + DateTime.UtcNow.ToShortTimeString();
+                    string toWriteString = "|" + DebugTypes[debugType] + "|" + source + "|" + debugSourceType + "|" + toWrite + "|" ;
                     if (currentLog.Split(new string[] { Environment.NewLine }, StringSplitOptions.None).Length >= LittleWeebSettings.MaxDebugLogSize)
                     {
 
@@ -188,8 +188,10 @@ namespace LittleWeebLibrary.Handlers
                         {
                             using (var streamWriter = new StreamWriter(fileStream))
                             {
+                                await streamWriter.WriteLineAsync("------------------------------ " + DateTime.UtcNow.ToShortTimeString() + "-----------------------------------");
                                 currentLog += toWriteString;
                                 await streamWriter.WriteLineAsync(toWriteString);
+                                await streamWriter.WriteLineAsync("------------------------------ " + DateTime.UtcNow.ToShortTimeString() + "-----------------------------------");
                             }
                         }
                     }
@@ -206,7 +208,7 @@ namespace LittleWeebLibrary.Handlers
         [Conditional("DEBUG")]
         private void WriteTrace(string toWrite)
         {
-            Trace.WriteLine(toWrite);
+            Debug.WriteLine(toWrite);
         }
     }
 

@@ -54,7 +54,7 @@ namespace LittleWeebLibrary.Handlers
             {
                 HttpClient client = new HttpClient();
 
-                var request = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/repos/littleweeb/Desktop/releases");
+                var request = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/repos/littleweeb/Desktop/releases?access_token=009999e3ec64c50e8da16c90bb81ec3a77afb770");
                 request.Headers.Add("Accept", "application/vnd.github.v3+json");
                 request.Headers.Add("User-Agent", "LittleWeeb");
 
@@ -192,7 +192,7 @@ namespace LittleWeebLibrary.Handlers
             {
                 HttpClient client = new HttpClient();
 
-                var request = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/repos/littleweeb/Android/releases");
+                var request = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/repos/littleweeb/Android/releases?access_token=009999e3ec64c50e8da16c90bb81ec3a77afb770");
                 request.Headers.Add("Accept", "application/vnd.github.v3+json");
                 request.Headers.Add("User-Agent", "LittleWeeb");
 

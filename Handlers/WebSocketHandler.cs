@@ -64,7 +64,8 @@ namespace LittleWeebLibrary.Handlers
                 ClientIds = new List<string>();
                 Server = new SimpleWebSocketServer(new SimpleWebSocketServerSettings()
                 {
-                    port = LittleWeebSettings.Port
+                    port = LittleWeebSettings.Port,
+                    bufferSize = 65535
                 });
                 Server.WebsocketServerEvent += OnWebSocketServerEvent;
                 Server.StartServer();

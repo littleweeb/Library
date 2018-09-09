@@ -110,7 +110,7 @@ namespace LittleWeebLibrary.Handlers
                         int downloadIndex = 0;
                         foreach (JsonDownloadInfo info in downloadHistoryObject.downloadHistory)
                         {
-                            if (info.id == downloadInfo.id)
+                            if (info.id == downloadInfo.id || info.filename == downloadInfo.filename || (info.pack == downloadInfo.pack && info.bot == downloadInfo.bot))
                             {
                                 list.downloadHistorylist[listIndex].downloadHistory[downloadIndex] = downloadInfo;
                                 fileAlreadyExists = true;
