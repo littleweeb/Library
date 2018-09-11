@@ -53,7 +53,7 @@ namespace LittleWeebLibrary.Handlers
                 CurrentlyDownloading = new JsonDownloadInfo();
                 Stop = false;
 
-                Task.Run(async () => await DownloadQueueHandler());
+                DownloadQueueHandler();
             }
             catch (Exception e)
             {
@@ -423,7 +423,7 @@ namespace LittleWeebLibrary.Handlers
 
         }
 
-        private async Task DownloadQueueHandler()
+        private void DownloadQueueHandler()
         {
             OnDebugEvent?.Invoke(this, new BaseDebugArgs()
             {
@@ -433,7 +433,7 @@ namespace LittleWeebLibrary.Handlers
                 DebugType = 0
             });
 
-            await Task.Run(() =>
+            Task.Run(() => 
             {
                 while (!Stop)
                 {
@@ -459,7 +459,7 @@ namespace LittleWeebLibrary.Handlers
                 }
             });
 
-            await Task.Run(() =>
+            Task.Run(() =>
             {
                 while (!Stop)
                 {
