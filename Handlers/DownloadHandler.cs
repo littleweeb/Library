@@ -458,7 +458,42 @@ namespace LittleWeebLibrary.Handlers
                     Thread.Sleep(500);
                 }
             });
-           
+
+            await Task.Run(() =>
+            {
+                while (!Stop)
+                {
+
+                    if (DownloadProcesOnGoing)
+                    {
+
+                        OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+                        {
+                            DebugMessage = "Currently Busy Downloading: " + CurrentlyDownloading.ToJson(),
+                            DebugSource = this.GetType().Name,
+                            DebugSourceType = 1,
+                            DebugType = 3
+                        });
+
+                    }
+                    else
+                    {
+                        OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+                        {
+                            DebugMessage = "Currently Waiting For Download to start with queue length: " + DownloadQueue.Count.ToString(),
+                            DebugSource = this.GetType().Name,
+                            DebugSourceType = 1,
+                            DebugType = 3
+                        });
+
+
+                        Thread.Sleep(10000);
+                    }
+
+                    Thread.Sleep(1000);
+                }
+            });
+
         }
 
         public void SetIrcSettings(IrcSettings settings)

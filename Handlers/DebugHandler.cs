@@ -188,10 +188,10 @@ namespace LittleWeebLibrary.Handlers
                         {
                             using (var streamWriter = new StreamWriter(fileStream))
                             {
-                                await streamWriter.WriteLineAsync("------------------------------ " + DateTime.UtcNow.ToShortTimeString() + "-----------------------------------");
+                                await streamWriter.WriteLineAsync("------------------------------ " + DateTime.UtcNow.ToLongTimeString() + " " + DateTime.UtcNow.ToLongDateString()  + "-----------------------------------");
                                 currentLog += toWriteString;
                                 await streamWriter.WriteLineAsync(toWriteString);
-                                await streamWriter.WriteLineAsync("------------------------------ " + DateTime.UtcNow.ToShortTimeString() + "-----------------------------------");
+                                await streamWriter.WriteLineAsync("------------------------------ " + DateTime.UtcNow.ToLongTimeString() + " " + DateTime.UtcNow.ToLongDateString() + "-----------------------------------");
                             }
                         }
                     }
