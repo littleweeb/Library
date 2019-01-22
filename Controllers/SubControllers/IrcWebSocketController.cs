@@ -9,47 +9,28 @@ using Newtonsoft.Json;
 
 namespace LittleWeebLibrary.Controllers
 {
-    public class IrcWebSocketController : ISubWebSocketController, IDebugEvent
+    public class IrcWebSocketController : ISubWebSocketController
     {
 
-        public event EventHandler<BaseDebugArgs> OnDebugEvent;
+       
 
         private readonly IIrcWebSocketService IrcWebSocketService;
         private readonly IWebSocketHandler WebSocketHandler;
+        private readonly IDebugHandler DebugHandler;
 
-        public IrcWebSocketController(IWebSocketHandler webSocketHandler, IIrcWebSocketService ircWebSocketService)
+        public IrcWebSocketController(IWebSocketHandler webSocketHandler, IIrcWebSocketService ircWebSocketService, IDebugHandler debugHandler)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "IrcWebSocketController called.",
-                DebugSourceType = 0,
-                DebugType = 0
-            });
-
+            debugHandler.TraceMessage("Constructor Called.", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
+            DebugHandler = debugHandler;
             IrcWebSocketService = ircWebSocketService;
             WebSocketHandler = webSocketHandler;
         }      
 
         public void OnWebSocketEvent(WebSocketEventArgs args)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "Method OnWebSocketEvent called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
 
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = args.ToString(),
-                DebugSourceType = 1,
-                DebugType = 1
-            });
-
-
+            DebugHandler.TraceMessage("OnWebSocketEvent Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(args.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
             try
             {
                 try{
@@ -97,14 +78,8 @@ namespace LittleWeebLibrary.Controllers
                 }
                 catch (JsonReaderException e)
                 {
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugSource = this.GetType().Name,
-                        DebugMessage = e.ToString(),
-                        DebugSourceType = 1,
-                        DebugType = 4
-                    });
 
+                    DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
                     JsonError error = new JsonError()
                     {
                         type = "command_error",
@@ -117,14 +92,7 @@ namespace LittleWeebLibrary.Controllers
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
-
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.ERROR);
                 JsonError error = new JsonError()
                 {
                     type = "command_error",

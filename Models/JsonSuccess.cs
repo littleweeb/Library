@@ -3,18 +3,16 @@ using Newtonsoft.Json.Linq;
 
 namespace LittleWeebLibrary.Models
 {
-    class JsonFreeSpace
+    public class JsonSuccess
     {
-        public string type = "free_space";
-        public long freespacebytes { get; set; } = -1;
-        public long freespacekbytes { get; set; } = -1;
-        public long freespacembytes { get; set; } = -1;
+
+        public string type = "success";
+        public string message { get; set; } = string.Empty;
 
         public string ToJson()
         {
             return JsonConvert.SerializeObject(this);
         }
-
         public override string ToString()
         {
             JObject jobject = ToJObject();
@@ -33,4 +31,5 @@ namespace LittleWeebLibrary.Models
             return jobject;
         }
     }
+    
 }

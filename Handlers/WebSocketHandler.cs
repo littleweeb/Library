@@ -20,10 +20,12 @@ namespace LittleWeebLibrary.Handlers
         Task StopServer();
     }
 
-    public class WebSocketHandler : IWebSocketHandler, IDebugEvent, ISettingsInterface
+    public class WebSocketHandler : IWebSocketHandler, ISettingsInterface
     {
         public event EventHandler<WebSocketEventArgs> OnWebSocketEvent;
-        public event EventHandler<BaseDebugArgs> OnDebugEvent;
+       
+
+        private readonly IDebugHandler DebugHandler;
 
         private LittleWeebSettings LittleWeebSettings;
 
@@ -31,33 +33,23 @@ namespace LittleWeebLibrary.Handlers
 
         private List<string> ClientIds;
 
-        public WebSocketHandler(ISettingsHandler settingsHandler)
+        public WebSocketHandler(ISettingsHandler settingsHandler, IDebugHandler debugHandler)
         {
+            debugHandler.TraceMessage("Constructor Called", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
             LittleWeebSettings = settingsHandler.GetLittleWeebSettings();
+            DebugHandler = debugHandler;
         }
 
         public void SetLittleWeebSettings(LittleWeebSettings settings)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = settings.ToString(),
-                DebugSourceType = 1,
-                DebugType = 1
-            });
+            DebugHandler.TraceMessage("SetLittleWeebSettings Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(settings.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
             LittleWeebSettings = settings;
-
         }
 
         public void StartServer()
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = " StartWebSocketServer Called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
+            DebugHandler.TraceMessage("StartServer Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
 
             try
             {
@@ -70,128 +62,62 @@ namespace LittleWeebLibrary.Handlers
                 Server.WebsocketServerEvent += OnWebSocketServerEvent;
                 Server.StartServer();
 
-                Debug.WriteLine("WebSocket server started.");
+                DebugHandler.TraceMessage("Web Socket Server Started!", DebugSource.TASK, DebugType.INFO);
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
-
-                Debug.WriteLine(e.ToString());
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.ERROR);
             }
         }
 
         public async Task SendMessage(string message)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "SendMessage called.",
-                DebugSourceType = 3,
-                DebugType = 0
-            });
-
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = message,
-                DebugSourceType = 3,
-                DebugType = 1
-            });
+            DebugHandler.TraceMessage("SendMessage Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(message, DebugSource.TASK, DebugType.PARAMETERS);
 
             try
             {
                 if (await Server.SendTextMessageAsync(message))
                 {
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugSource = this.GetType().Name,
-                        DebugMessage = "Succesfully send message to WebSocket Client.",
-                        DebugSourceType = 3,
-                        DebugType = 2
-                    });
+
+                    DebugHandler.TraceMessage("Succesfully send message to WebSocket Client.", DebugSource.TASK, DebugType.INFO);
                 }
                 else
                 {
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugSource = this.GetType().Name,
-                        DebugMessage = "Could not send message to WebSocket Client.",
-                        DebugSourceType = 3,
-                        DebugType = 3
-                    });
+
+                    DebugHandler.TraceMessage("Could not send message to WebSocket Client.", DebugSource.TASK, DebugType.WARNING);
                 }
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
             }
         }
 
         public async Task StopServer()
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "StopServer called.",
-                DebugSourceType = 3,
-                DebugType = 0
-            });
+            DebugHandler.TraceMessage("StopServer Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
             try
             {
                 if (await Server.StopAllAsync())
                 {
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugSource = this.GetType().Name,
-                        DebugMessage = "Succesfully stopped WebSocket connection with client.",
-                        DebugSourceType = 3,
-                        DebugType = 2
-                    });
+                    DebugHandler.TraceMessage("Succesfully closed websocket connection to client(s), stopped websocket server.", DebugSource.TASK, DebugType.INFO);
                 }
                 else
                 {
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugSource = this.GetType().Name,
-                        DebugMessage = "Could not stop WebSocket connection with client.",
-                        DebugSourceType = 3,
-                        DebugType = 3
-                    });
+                    DebugHandler.TraceMessage("Could not stop WebSocket connection with client, websocket server still running.", DebugSource.TASK, DebugType.WARNING);
                 }
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
             }
         }
 
         private async void OnWebSocketServerEvent(object sender, WebSocketEventArg args)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                DebugMessage = "OnWebSocketServerEvent called.",
-                DebugSourceType = 2,
-                DebugType = 0
-            });
+
+            DebugHandler.TraceMessage("OnWebSocketServerEvent Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
 
             try
             {
@@ -201,13 +127,7 @@ namespace LittleWeebLibrary.Handlers
                     if (!ClientIds.Contains(args.clientId))
                     {
 
-                        OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                        {
-                            DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                            DebugMessage = "Client with id " + args.clientId + " from " + args.clientBaseUrl + " connected!",
-                            DebugSourceType = 2,
-                            DebugType = 2
-                        });
+                        DebugHandler.TraceMessage("Client with id " + args.clientId + " from " + args.clientBaseUrl + " connected!", DebugSource.TASK, DebugType.INFO);
 
                         ClientIds.Add(args.clientId);
                         await SendMessage(new JsonWelcome()
@@ -221,13 +141,7 @@ namespace LittleWeebLibrary.Handlers
                 {
                     if (ClientIds.Contains(args.clientId))
                     {
-                        OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                        {
-                            DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                            DebugMessage = "Client with id " + args.clientId + " from " + args.clientBaseUrl + " disconnected!",
-                            DebugSourceType = 2,
-                            DebugType = 2
-                        });
+                        DebugHandler.TraceMessage("Client with id " + args.clientId + " from " + args.clientBaseUrl + " disconnected!", DebugSource.TASK, DebugType.INFO);
                         ClientIds.Remove(args.clientId);
                     }
                 }
@@ -236,13 +150,9 @@ namespace LittleWeebLibrary.Handlers
                 {
 
                     string received = Encoding.ASCII.GetString(args.data);
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                        DebugMessage = received,
-                        DebugSourceType = 2,
-                        DebugType = 1
-                    });
+
+
+                    DebugHandler.TraceMessage(received, DebugSource.TASK, DebugType.INFO);
 
                     OnWebSocketEvent?.Invoke(this, new WebSocketEventArgs() { Message = received });
 
@@ -254,38 +164,19 @@ namespace LittleWeebLibrary.Handlers
 
                 if (args.isPing)
                 {
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                        DebugMessage = "IsPing: " + args.isPing.ToString(),
-                        DebugSourceType = 2,
-                        DebugType = 1
-                    });
-
+                    DebugHandler.TraceMessage("IsPing: " + args.isPing.ToString(), DebugSource.TASK, DebugType.INFO);
                     await Server.SendPongMessageAsync();
                 }
 
                 if (args.isPong)
                 {
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                        DebugMessage = "IsPong: " + args.isPong.ToString(),
-                        DebugSourceType = 2,
-                        DebugType = 1
-                    });
+                    DebugHandler.TraceMessage("IsPong: " + args.isPing.ToString(), DebugSource.TASK, DebugType.INFO);
                     await Server.SendPingMessageAsync();
                 }
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
             }
 
         }

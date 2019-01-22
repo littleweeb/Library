@@ -19,34 +19,22 @@ namespace LittleWeebLibrary.Handlers
         Task<JsonVersionInfo> GetLatestVersionDesktop(bool release);
     }
 
-    public class VersionHandler : IVersionHandler, IDebugEvent
+    public class VersionHandler : IVersionHandler
     {
-        public event EventHandler<BaseDebugArgs> OnDebugEvent;
+       
 
-        public VersionHandler()
+        private readonly IDebugHandler DebugHandler;
+
+        public VersionHandler(IDebugHandler debugHandler)
         {
-
+            debugHandler.TraceMessage("Constructor Called.", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
+            DebugHandler = debugHandler;
         }
 
         public async Task<JsonVersionInfo> GetLatestVersionDesktop(bool release)
         {
-
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "GetLatestVersionDesktop called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-
-
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "Is release mode: " + release.ToString(),
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 1
-            });
+            DebugHandler.TraceMessage("GetLatestVersionDesktop Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage("Is release mode: " + release.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
 
 
             JsonVersionInfo versionInfo = new JsonVersionInfo();
@@ -63,27 +51,12 @@ namespace LittleWeebLibrary.Handlers
 
                 if (response.IsSuccessStatusCode)
                 {
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugMessage = "Succesfully retreived releases!",
-                        DebugSource = this.GetType().Name,
-                        DebugSourceType = 1,
-                        DebugType = 2
-                    });
+                    DebugHandler.TraceMessage("Succesfully retreived releases!", DebugSource.TASK, DebugType.INFO);
 
                     string json = await response.Content.ReadAsStringAsync(); 
 
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugMessage = "Releases: " + json,
-                        DebugSource = this.GetType().Name,
-                        DebugSourceType = 1,
-                        DebugType = 2
-                    });
-
+                    DebugHandler.TraceMessage("Releases: " + json, DebugSource.TASK, DebugType.INFO);
                     JArray jsonResult = JArray.Parse(json);
-
-
 
                     foreach (JObject latestRelease in jsonResult.Children<JObject>())
                     {
@@ -133,36 +106,18 @@ namespace LittleWeebLibrary.Handlers
                         }
                     }
 
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugMessage = "No matching releases found!",
-                        DebugSource = this.GetType().Name,
-                        DebugSourceType = 1,
-                        DebugType = 3
-                    });
+                    DebugHandler.TraceMessage("No matching releases found!", DebugSource.TASK, DebugType.INFO);
                     return versionInfo;
                 }
                 else
                 {
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugMessage = "Failed retreiving releases!",
-                        DebugSource = this.GetType().Name,
-                        DebugSourceType = 1,
-                        DebugType = 3
-                    });
+                    DebugHandler.TraceMessage("Failed retreiving releases!", DebugSource.TASK, DebugType.WARNING);
                     return versionInfo;
                 }
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugMessage = e.ToString(),
-                    DebugSource = this.GetType().Name,
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
 
                 return versionInfo;
             }
@@ -171,21 +126,10 @@ namespace LittleWeebLibrary.Handlers
 
         public async Task<JsonVersionInfo> GetLatestVersionAndroid(bool release)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "GetLatestVersionAndroid called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
 
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage =  "Is release mode: " + release.ToString(),
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 1
-            });
+            DebugHandler.TraceMessage("GetLatestVersionAndroid Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage("Is release mode: " + release.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
+
 
             JsonVersionInfo versionInfo = new JsonVersionInfo();
             try
@@ -202,24 +146,13 @@ namespace LittleWeebLibrary.Handlers
 
                 if (response.IsSuccessStatusCode)
                 {
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugMessage = "Succesfully retreived releases!",
-                        DebugSource = this.GetType().Name,
-                        DebugSourceType = 1,
-                        DebugType = 2
-                    });
+                    DebugHandler.TraceMessage("Succesfully retreived releases!", DebugSource.TASK, DebugType.INFO);
 
                     string json = await response.Content.ReadAsStringAsync();
 
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugMessage = "Releases: " + json,
-                        DebugSource = this.GetType().Name,
-                        DebugSourceType = 1,
-                        DebugType = 2
-                    });
 
+
+                    DebugHandler.TraceMessage("Release: " + json, DebugSource.TASK, DebugType.INFO);
                     JArray jsonResult = JArray.Parse(json);
 
 
@@ -257,36 +190,19 @@ namespace LittleWeebLibrary.Handlers
                     }
 
 
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugMessage = "No matching releases found!",
-                        DebugSource = this.GetType().Name,
-                        DebugSourceType = 1,
-                        DebugType = 3
-                    });
+                    DebugHandler.TraceMessage("No matching releases found!", DebugSource.TASK, DebugType.INFO);
                     return versionInfo;
                 }
                 else
                 {
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugMessage = "Failed retreiving releases!",
-                        DebugSource = this.GetType().Name,
-                        DebugSourceType = 1,
-                        DebugType = 3
-                    });
+                    DebugHandler.TraceMessage("Failed retreiving releases!", DebugSource.TASK, DebugType.WARNING);
                     return versionInfo;
                 }
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugMessage = e.ToString(),
-                    DebugSource = this.GetType().Name,
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
 
                 return versionInfo;
             }
@@ -294,13 +210,7 @@ namespace LittleWeebLibrary.Handlers
 
         public JsonVersionInfo GetLocalVersion()
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "GetLocalVersion called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
+            DebugHandler.TraceMessage("GetLocalVersion Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
             JsonVersionInfo info = new JsonVersionInfo();
 
             try
@@ -327,13 +237,8 @@ namespace LittleWeebLibrary.Handlers
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugMessage = e.ToString(),
-                    DebugSource = this.GetType().Name,
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
             }
            
             return info;

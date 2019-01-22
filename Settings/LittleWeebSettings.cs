@@ -5,12 +5,13 @@ namespace LittleWeebLibrary.Settings
 {
     public class LittleWeebSettings
     {
-        public int Port { get; set; }
+        public int Port { get; set; } 
         public bool Local { get; set; } 
         public int RandomUsernameLength { get; set; }
         public List<int> DebugLevel { get; set; }
         public List<int> DebugType { get; set; }
         public int MaxDebugLogSize { get; set; }
+        public int CurrentlyAiringBot { get; set; } = 21; //Ginpachi-Sensei on Nibl.
 
         public override string ToString()
         {

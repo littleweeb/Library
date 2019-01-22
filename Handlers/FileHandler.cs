@@ -20,59 +20,46 @@ namespace LittleWeebLibrary.Handlers
         string OpenFile(string filePath, string fileName = null);
         string DeleteFile(string filePath, string fileName = null);
     }
-    public class FileHandler : IFileHandler, IDebugEvent, ISettingsInterface
+    public class FileHandler : IFileHandler, ISettingsInterface
     {
-        public event EventHandler<BaseDebugArgs> OnDebugEvent;
+       
 
-
+        private readonly IDebugHandler DebugHandler;
         private LittleWeebSettings LittleWeebSettings;
+
+        public FileHandler(IDebugHandler debugHandler)
+        {
+            debugHandler.TraceMessage("Constructor called", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
+            DebugHandler = debugHandler;
+        }
 
         public string OpenFile(string filePath, string fileName = null)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "OpenFile Called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
 
-         
+            DebugHandler.TraceMessage("OpenFile called", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage("FilePath: " + filePath, DebugSource.TASK, DebugType.PARAMETERS);
 
             string fullFilePath = filePath;
 
             if (fileName != null)
             {
 
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugMessage = fileName,
-                    DebugSource = this.GetType().Name,
-                    DebugSourceType = 1,
-                    DebugType = 1
-                });
+
+
+                DebugHandler.TraceMessage("FileName: " + fileName, DebugSource.TASK, DebugType.PARAMETERS);
 
                 fullFilePath = Path.Combine(filePath, fileName);
+
+                DebugHandler.TraceMessage("Full Filepath: " + fullFilePath, DebugSource.TASK, DebugType.INFO);
             }
 
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = filePath,
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 1
-            });
-
             try
-            {
-                
+            {                
                 for (int i = 0; i < 20; i++)
                 {
-
                     if (File.Exists(fullFilePath))
                     {
 #if __ANDROID__
-
                         Android.Net.Uri uri = Android.Net.Uri.Parse(fullFilePath);
                         Intent intent = new Intent(Intent.ActionView);
                         intent.SetDataAndType(uri, "video/*");
@@ -80,25 +67,23 @@ namespace LittleWeebLibrary.Handlers
                         Android.App.Application.Context.StartActivity(intent);
 #else
 
-
                         if (UtilityMethods.CheckOperatingSystems() == UtilityMethods.OperatingSystems.OsX)
                         {
                             Process.Start("open", fullFilePath);
                         }
                         else
                         {
-                            var p = new Process();
-                            p.StartInfo = new ProcessStartInfo(fullFilePath)
+                            var p = new Process
                             {
-                                UseShellExecute = true
+                                StartInfo = new ProcessStartInfo(fullFilePath)
+                                {
+                                    UseShellExecute = true
+                                }
                             };
                             p.Start();
-                        }
-
-
-                       
+                        }                       
 #endif
-                        JsonSuccesReport report = new JsonSuccesReport()
+                        JsonSuccess report = new JsonSuccess()
                         {
                             message = "Succesfully opened file with path: " + fullFilePath
                         };
@@ -107,31 +92,33 @@ namespace LittleWeebLibrary.Handlers
                     Thread.Sleep(200);
                 }
 
-                JsonError err = new JsonError();
-                err.type = "open_file_failed";
-                err.errormessage = "Could not open file but didn't throw exception.";
-                err.errortype = "warning";
-                err.exception = "none";
-                return err.ToJson();
+                JsonError jsonError = new JsonError
+                {
+                    type = "open_file_failed",
+                    errormessage = "Could not open file but didn't throw exception.",
+                    errortype = "warning",
+                    exception = "none"
+                };
+
+                DebugHandler.TraceMessage("Could not open file but didn't throw exception, file: " + fullFilePath, DebugSource.TASK, DebugType.WARNING);
+
+                return jsonError.ToJson();
 
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+                DebugHandler.TraceMessage("Could not open file. " + fullFilePath, DebugSource.TASK, DebugType.WARNING);
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
+
+
+                JsonError jsonError = new JsonError
                 {
-                    DebugMessage = e.ToString(),
-                    DebugSource = this.GetType().Name,
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
-
-
-                JsonError err = new JsonError();
-                err.type = "open_file_failed";
-                err.errormessage = "Could not open file.";
-                err.errortype = "exception";
-                err.exception = e.ToString();
-                return err.ToJson();
+                    type = "open_file_failed",
+                    errormessage = "Could not open file.",
+                    errortype = "exception",
+                    exception = e.ToString()
+                };
+                return jsonError.ToJson();
             }
         }
        
@@ -139,36 +126,19 @@ namespace LittleWeebLibrary.Handlers
         public string DeleteFile(string filePath, string fileName = null)
         {
 
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "DeleteFile Called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = filePath,
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 1
-            });
+            DebugHandler.TraceMessage("DeleteFile called", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage("FilePath: " + filePath, DebugSource.TASK, DebugType.PARAMETERS);
 
             string fullFilePath = filePath;
 
             if (fileName != null)
             {
 
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugMessage = fileName,
-                    DebugSource = this.GetType().Name,
-                    DebugSourceType = 1,
-                    DebugType = 1
-                });
 
+                DebugHandler.TraceMessage("FileName: " + fileName, DebugSource.TASK, DebugType.PARAMETERS);
                 fullFilePath = Path.Combine(filePath, fileName);
+
+                DebugHandler.TraceMessage("Full File Path: " + fullFilePath, DebugSource.TASK, DebugType.INFO);
             }
 
             try
@@ -182,7 +152,9 @@ namespace LittleWeebLibrary.Handlers
                     {
                         Directory.Delete(filePath);
 
-                        JsonSuccesReport report = new JsonSuccesReport()
+                        DebugHandler.TraceMessage("Succesfully deleted file: " + fullFilePath + " & empty directory: " + filePath, DebugSource.TASK, DebugType.INFO);
+
+                        JsonSuccess report = new JsonSuccess()
                         {
                             message = "Succesfully deleted file with path: " + fullFilePath + " and directory: " + filePath
                         };
@@ -191,8 +163,9 @@ namespace LittleWeebLibrary.Handlers
                     }
                     else
                     {
+                        DebugHandler.TraceMessage("Succesfully deleted file: " + fullFilePath , DebugSource.TASK, DebugType.INFO);
 
-                        JsonSuccesReport report = new JsonSuccesReport()
+                        JsonSuccess report = new JsonSuccess()
                         {
                             message = "Succesfully deleted file with path: " + fullFilePath
                         };
@@ -202,7 +175,8 @@ namespace LittleWeebLibrary.Handlers
                 }
                 else
                 {
-                    JsonSuccesReport report = new JsonSuccesReport()
+                    DebugHandler.TraceMessage("File: " + fullFilePath + " does not exist, possibly already deleted.", DebugSource.TASK, DebugType.INFO);
+                    JsonSuccess report = new JsonSuccess()
                     {
                         message = "File with filepath: " + fullFilePath + " already removed."
                     };
@@ -215,23 +189,18 @@ namespace LittleWeebLibrary.Handlers
             {
 
 
+                DebugHandler.TraceMessage("Failed to delete file: " + fullFilePath, DebugSource.TASK, DebugType.WARNING);
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
 
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+                JsonError jsonError = new JsonError
                 {
-                    DebugMessage = e.ToString(),
-                    DebugSource = this.GetType().Name,
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                    type = "delete_file_failed",
+                    errormessage = "Could not delete file.",
+                    errortype = "exception",
+                    exception = e.ToString()
+                };
 
-
-                JsonError err = new JsonError();
-                err.type = "delete_file_failed";
-                err.errormessage = "Could not delete file.";
-                err.errortype = "exception";
-                err.exception = e.ToString();
-
-                return err.ToJson();
+                return jsonError.ToJson();
             }
         }
 
@@ -241,13 +210,8 @@ namespace LittleWeebLibrary.Handlers
 
         public void SetLittleWeebSettings(LittleWeebSettings settings)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = settings.ToString(),
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 1
-            });
+            DebugHandler.TraceMessage("SetLittleWeebSettings called", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(settings.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
             LittleWeebSettings = settings;
         }
     }

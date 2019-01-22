@@ -3,19 +3,19 @@ using Newtonsoft.Json.Linq;
 
 namespace LittleWeebLibrary.Models
 {
-    public class JsonSuccesReport
+    public class JsonCurrentlyAiring
     {
-
-        public string type = "success_report";
-        public string message { get; set; } = string.Empty;
+        public string type { get; set; } = "anime_info_currently_airing";
+        public JObject result { get; set; } = new JObject();
 
         public string ToJson()
         {
             return JsonConvert.SerializeObject(this);
         }
+
         public override string ToString()
         {
-            JObject jobject = JObject.FromObject(this);
+            JObject jobject = ToJObject();
             string properties = string.Empty;
             foreach (var x in jobject)
             {
@@ -23,6 +23,12 @@ namespace LittleWeebLibrary.Models
             }
             return properties;
         }
+
+        public JObject ToJObject()
+        {
+
+            JObject jobject = JObject.FromObject(this);
+            return jobject;
+        }
     }
-    
 }

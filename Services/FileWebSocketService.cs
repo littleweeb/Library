@@ -4,56 +4,43 @@ using LittleWeebLibrary.Handlers;
 using LittleWeebLibrary.Models;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Threading.Tasks;
 
 namespace LittleWeebLibrary.Services
 {
     public interface IFileWebSocketService
     {
-        void DeleteFile(JObject fileInfoJson);
-        void OpenFile(JObject fileInfoJson);
+        Task DeleteFile(JObject fileInfoJson);
+        Task OpenFile(JObject fileInfoJson);
     }
-    public class FileWebSocketService : IFileWebSocketService, IDebugEvent
+
+    public class FileWebSocketService : IFileWebSocketService
     {
-        public event EventHandler<BaseDebugArgs> OnDebugEvent;
+       
 
         private readonly IWebSocketHandler WebSocketHandler;
         private readonly IFileHandler FileHandler;
         private readonly IFileHistoryHandler FileHistoryHandler;
         private readonly IDownloadHandler DownloadHandler;
+        private readonly IDebugHandler DebugHandler;
 
-        public FileWebSocketService(IWebSocketHandler webSocketHandler, IFileHandler fileHandler, IFileHistoryHandler fileHistoryHandler, IDownloadHandler downloadHandler)
+        public FileWebSocketService(IWebSocketHandler webSocketHandler, IFileHandler fileHandler, IFileHistoryHandler fileHistoryHandler, IDownloadHandler downloadHandler, IDebugHandler debugHandler)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "Constructor called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 0,
-                DebugType = 0
-            });
+           
+            debugHandler.TraceMessage("Constructor called.", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
 
             WebSocketHandler = webSocketHandler;
             FileHandler = fileHandler;
             FileHistoryHandler = fileHistoryHandler;
             DownloadHandler = downloadHandler;
+            DebugHandler = debugHandler;
         }
 
 
-        public void DeleteFile(JObject fileInfoJson)
+        public async Task DeleteFile(JObject fileInfoJson)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "DeleteFile called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = fileInfoJson.ToString(),
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 1
-            });
+            DebugHandler.TraceMessage("DeleteFile called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(fileInfoJson.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
 
             try
             {
@@ -72,18 +59,12 @@ namespace LittleWeebLibrary.Services
                 DownloadHandler.RemoveDownload(filePath);
                 FileHistoryHandler.RemoveFileFromFileHistory(filePath);
                 string result = FileHandler.DeleteFile(filePath);
-                WebSocketHandler.SendMessage(result);
+                await WebSocketHandler.SendMessage(result);
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
 
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
                 JsonError error = new JsonError()
                 {
                     type = "parse_file_to_delete_error",
@@ -91,26 +72,14 @@ namespace LittleWeebLibrary.Services
                     errortype = "exception",
                     exception = e.ToString()
                 };
+                await WebSocketHandler.SendMessage(error.ToJson());
             }
         }
 
-        public async void OpenFile(JObject fileInfoJson)
+        public async Task OpenFile(JObject fileInfoJson)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "OpenFile called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = fileInfoJson.ToString(),
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 1
-            });
+            DebugHandler.TraceMessage("OpenFile called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(fileInfoJson.ToString(), DebugSource.TASK, DebugType.PARAMETERS);            
 
             try
             {
@@ -134,6 +103,7 @@ namespace LittleWeebLibrary.Services
                 else
                 {
 
+                    DebugHandler.TraceMessage("Request does not contain path parameter to open file.", DebugSource.TASK, DebugType.WARNING);
                     JsonError error = new JsonError()
                     {
                         type = "parse_file_to_open_error",
@@ -147,14 +117,7 @@ namespace LittleWeebLibrary.Services
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
-
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
                 JsonError error = new JsonError()
                 {
                     type = "parse_file_to_open_error",

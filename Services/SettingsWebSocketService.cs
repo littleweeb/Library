@@ -6,31 +6,32 @@ using LittleWeebLibrary.Settings;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace LittleWeebLibrary.Services
 {
     public interface ISettingsWebSocketService
     {
-        void GetCurrentIrcSettings();
-        void GetCurrentLittleWeebSettings();
-        void SetIrcSettings(JObject jsonIrcSettings);
-        void SetLittleWeebSettings(JObject jsonLittleWeebSettings);
-        void Setfullfilepath(JObject fullfilepathJson);
-        void SetSettingsClasses(
-            IWebSocketHandler webSocketHandler,
+        Task GetCurrentIrcSettings();
+        Task GetCurrentLittleWeebSettings();
+        Task SetIrcSettings(JObject jsonIrcSettings);
+        Task SetLittleWeebSettings(JObject jsonLittleWeebSettings);
+        Task Setfullfilepath(JObject fullfilepathJson);
+        Task SetSettingsClasses(
             ISettingsHandler settingsHandler,
             IIrcClientHandler ircClientHandler,
-            IDebugHandler debugHandler,
             IFileHandler fileHandler,
             IDownloadHandler downloadHandler,
             IDirectoryWebSocketService directoryWebSocketService,
             IIrcWebSocketService ircWebSocketService
             );
     }
-    public class SettingsWebSocketService : ISettingsWebSocketService, IDebugEvent
+    public class SettingsWebSocketService : ISettingsWebSocketService
     {
-        public event EventHandler<BaseDebugArgs> OnDebugEvent;
+       
 
+
+        private IDebugHandler DebugHandler;
         private IWebSocketHandler WebSocketHandler;
         private IIrcClientHandler IrcClientHandler;
         private ISettingsHandler SettingsHandler;
@@ -49,35 +50,29 @@ namespace LittleWeebLibrary.Services
         private IrcSettings IrcSettings;
 
         public SettingsWebSocketService(IWebSocketHandler webSocketHandler,
-            IDirectoryHandler directoryHandler)
+            IDirectoryHandler directoryHandler, IDebugHandler debugHandler)
         {
-
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "Constructor called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-
+            debugHandler.TraceMessage("Constructor Called", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
 
             WebSocketHandler = webSocketHandler;
             DirectoryHandler = directoryHandler;
-
+            DebugHandler = debugHandler;
 
         }
 
-        public void SetSettingsClasses(
-            IWebSocketHandler webSocketHandler,
+        public Task SetSettingsClasses(
             ISettingsHandler settingsHandler,
             IIrcClientHandler ircClientHandler,
-            IDebugHandler debugHandler,
             IFileHandler fileHandler,
             IDownloadHandler downloadHandler,
             IDirectoryWebSocketService directoryWebSocketService,
             IIrcWebSocketService ircWebSocketService
             )
         {
+
+
+            DebugHandler.TraceMessage("SetSettingsClasses Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+
             SettingsHandler = settingsHandler;
             IrcClientHandler = ircClientHandler;
             DownloadHandler = downloadHandler;
@@ -85,9 +80,9 @@ namespace LittleWeebLibrary.Services
             IrcWebSocketService = ircWebSocketService;
 
 
-            WebSocketHandlerSettings = webSocketHandler as ISettingsInterface;
+            WebSocketHandlerSettings = WebSocketHandler as ISettingsInterface;
             IrcClientHandlerSettings = ircClientHandler as ISettingsInterface;
-            DebugHandlerSettings = debugHandler as ISettingsInterface;
+            DebugHandlerSettings = DebugHandler as ISettingsInterface;
             FileHandlerSettings = fileHandler as ISettingsInterface;
             DownloadHandlerSettings = downloadHandler as ISettingsInterface;
             DirectoryWebSocketServiceSettings = directoryWebSocketService as ISettingsInterface;
@@ -98,17 +93,14 @@ namespace LittleWeebLibrary.Services
 
             SetAllIrcSettings(IrcSettings);
             SetAllLittleWeebSettings(LittleWeebSettings);
+
+            return Task.CompletedTask;
         }
 
-        public void GetCurrentIrcSettings()
+        public async Task GetCurrentIrcSettings()
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "GetCurrentIrcSettings called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
+
+            DebugHandler.TraceMessage("GetCurrentIrcSettings Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
             IrcSettings = SettingsHandler.GetIrcSettings();
             JsonIrcInfo info = new JsonIrcInfo()
             {
@@ -118,19 +110,13 @@ namespace LittleWeebLibrary.Services
                 fullfilepath= IrcSettings.fullfilepath
             };
 
-            WebSocketHandler.SendMessage(info.ToJson());
+            await WebSocketHandler.SendMessage(info.ToJson());
 
         }
 
-        public void GetCurrentLittleWeebSettings()
+        public async Task GetCurrentLittleWeebSettings()
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "GetCurrentLittleWeebSettings called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
+            DebugHandler.TraceMessage("GetCurrentLittleWeebSettings Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
             LittleWeebSettings = SettingsHandler.GetLittleWeebSettings();
 
             JsonLittleWeebSettings settings = new JsonLittleWeebSettings()
@@ -142,25 +128,13 @@ namespace LittleWeebLibrary.Services
                 debugtype = LittleWeebSettings.DebugType,
                 maxdebuglogsize = LittleWeebSettings.MaxDebugLogSize
             };
-            WebSocketHandler.SendMessage(settings.ToJson());
+            await WebSocketHandler.SendMessage(settings.ToJson());
         }
 
-        public void SetIrcSettings(JObject jsonIrcSettings)
+        public async Task SetIrcSettings(JObject jsonIrcSettings)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "SetIrcSettings called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = jsonIrcSettings.ToString(),
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 1
-            });
+            DebugHandler.TraceMessage("SetIrcSettings Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(jsonIrcSettings.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
 
             try
             {
@@ -175,44 +149,29 @@ namespace LittleWeebLibrary.Services
 
                 SetAllIrcSettings(IrcSettings);
                 SettingsHandler.WriteIrcSettings(IrcSettings);
-                GetCurrentIrcSettings();
+                await GetCurrentIrcSettings();
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
+
+                JsonError jsonError = new JsonError
                 {
-                    DebugMessage = e.ToString(),
-                    DebugSource = this.GetType().Name,
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                    type = "set_irc_settings_error",
+                    errortype = "Exception",
+                    errormessage = "Failed to set irc settings.",
+                    exception = e.ToString()
+                };
 
-                JsonError error = new JsonError();
-                error.type = "set_irc_settings_error";
-                error.errortype = "Exception";
-                error.errormessage = "Failed to set irc settings.";
-                error.exception = e.ToString();
-
-                WebSocketHandler.SendMessage(error.ToJson());
+                await WebSocketHandler.SendMessage(jsonError.ToJson());
             }
         }
 
-        public void SetLittleWeebSettings(JObject jsonLittleWeebSettings)
+        public async Task SetLittleWeebSettings(JObject jsonLittleWeebSettings)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "SetLittleWeebSettings called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = jsonLittleWeebSettings.ToString(),
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 1
-            });
+            DebugHandler.TraceMessage("SetLittleWeebSettings Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(jsonLittleWeebSettings.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
 
             try
             {
@@ -227,44 +186,27 @@ namespace LittleWeebLibrary.Services
 
                 SettingsHandler.WriteLittleWeebSettings(LittleWeebSettings);
 
-                GetCurrentLittleWeebSettings();
+                await GetCurrentLittleWeebSettings();
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
+                JsonError error = new JsonError
                 {
-                    DebugMessage = e.ToString(),
-                    DebugSource = this.GetType().Name,
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                    type = "set_littleweeb_settings_error",
+                    errortype = "Exception",
+                    errormessage = "Failed to set littleweeb settings.",
+                    exception = e.ToString()
+                };
 
-                JsonError error = new JsonError();
-                error.type = "set_littleweeb_settings_error";
-                error.errortype = "Exception";
-                error.errormessage = "Failed to set littleweeb settings.";
-                error.exception = e.ToString();
-
-                WebSocketHandler.SendMessage(error.ToJson());
+                await WebSocketHandler.SendMessage(error.ToJson());
             }
         }
 
-        public void Setfullfilepath(JObject fullfilepathJson)
+        public async Task Setfullfilepath(JObject fullfilepathJson)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "Setfullfilepath called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = fullfilepathJson.ToString(),
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 1
-            });
+            DebugHandler.TraceMessage("Setfullfilepath Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(fullfilepathJson.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
             try
             {
                 string path = fullfilepathJson.Value<string>("path");
@@ -272,33 +214,31 @@ namespace LittleWeebLibrary.Services
                 IrcSettings.fullfilepath= path;
                 SetAllIrcSettings(IrcSettings);
                 SettingsHandler.WriteIrcSettings(IrcSettings);
-                GetCurrentIrcSettings();
+                await GetCurrentIrcSettings();
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
+
+                JsonError jsonError = new JsonError
                 {
-                    DebugMessage = e.ToString(),
-                    DebugSource = this.GetType().Name,
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                    type = "set_download_directory_error",
+                    errortype = "Exception",
+                    errormessage = "Failed to set custom download directory.",
+                    exception = e.ToString()
+                };
 
-                JsonError error = new JsonError();
-                error.type = "set_download_directory_error";
-                error.errortype = "Exception";
-                error.errormessage = "Failed to set custom download directory.";
-                error.exception = e.ToString();
-
-                WebSocketHandler.SendMessage(error.ToJson());
+                await WebSocketHandler.SendMessage(jsonError.ToJson());
             }
 
         }
 
         private void SetAllLittleWeebSettings(LittleWeebSettings settings)
         {
+            DebugHandler.TraceMessage("SetAllLittleWeebSettings Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(settings.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
             IrcClientHandlerSettings.SetLittleWeebSettings(settings);
-            DebugHandlerSettings.SetLittleWeebSettings(settings);
             FileHandlerSettings.SetLittleWeebSettings(settings);
             DownloadHandlerSettings.SetLittleWeebSettings(settings);
             DirectoryWebSocketServiceSettings.SetLittleWeebSettings(settings);
@@ -307,8 +247,9 @@ namespace LittleWeebLibrary.Services
 
         private void SetAllIrcSettings(IrcSettings settings)
         {
+            DebugHandler.TraceMessage("SetAllIrcSettings Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(settings.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
             IrcClientHandlerSettings.SetIrcSettings(settings);
-            DebugHandlerSettings.SetIrcSettings(settings);
             FileHandlerSettings.SetIrcSettings(settings);
             DownloadHandlerSettings.SetIrcSettings(settings);
             DirectoryWebSocketServiceSettings.SetIrcSettings(settings);

@@ -19,22 +19,22 @@ namespace LittleWeebLibrary.Handlers
         string GetFreeSpace(string directoryPath);
 
     }
-    public class DirectoryHandler :  IDirectoryHandler, IDebugEvent
+    public class DirectoryHandler :  IDirectoryHandler
     {
-        public event EventHandler<BaseDebugArgs> OnDebugEvent;
+       
 
+        private readonly IDebugHandler DebugHandler;
+
+        public DirectoryHandler(IDebugHandler debugHandler)
+        {
+            debugHandler.TraceMessage("Constructor Called", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
+            DebugHandler = debugHandler;
+        }
 
         public string GetDrives()
         {
 
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "GetDrives Called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-
+            DebugHandler.TraceMessage("GetDrives Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
             try
             {
                 JsonDirectories directories = new JsonDirectories();
@@ -44,14 +44,9 @@ namespace LittleWeebLibrary.Handlers
 #if DEBUG
 #warning Compiling android code! 
 #endif
-
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugMessage = "Running Android Code!.",
-                    DebugSource = this.GetType().Name,
-                    DebugSourceType = 1,
-                    DebugType = 2
-                });
+                
+                DebugHandler.TraceMessage("Running Android Code!", DebugSource.TASK, DebugType.INFO);
+                
 
                 string onlyAvailablePath = "/storage/";
                 if (Android.OS.Build.VERSION.SdkInt >= Android.OS.BuildVersionCodes.M) {
@@ -83,12 +78,16 @@ namespace LittleWeebLibrary.Handlers
 
                 return directories.ToJson();
 #else
+
+                DebugHandler.TraceMessage("Running Windows Code!", DebugSource.TASK, DebugType.INFO);
                 DriveInfo[] allDrives = DriveInfo.GetDrives();
                 foreach (DriveInfo drive in allDrives)
                 {
-                    JsonDirectory directorywithpath = new JsonDirectory();
-                    directorywithpath.dirname = drive.Name;
-                    directorywithpath.path = drive.Name;
+                    JsonDirectory directorywithpath = new JsonDirectory
+                    {
+                        dirname = drive.Name,
+                        path = drive.Name
+                    };
                     directories.directories.Add(directorywithpath);
                 }
                 return directories.ToJson();
@@ -96,19 +95,16 @@ namespace LittleWeebLibrary.Handlers
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugMessage = e.ToString(),
-                    DebugSource = this.GetType().Name,
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
 
-                JsonError error = new JsonError();
-                error.type = "get_drives_error";
-                error.errortype = "exception";
-                error.errormessage = "Could not get drives, see log.";
-                error.exception = e.ToString();
+                DebugHandler.TraceMessage("Failed to get drives: " + e.ToString(), DebugSource.TASK, DebugType.WARNING);
+
+                JsonError error = new JsonError
+                {
+                    type = "get_drives_error",
+                    errortype = "exception",
+                    errormessage = "Could not get drives, see log.",
+                    exception = e.ToString()
+                };
 
                 return error.ToJson();
             }
@@ -119,21 +115,9 @@ namespace LittleWeebLibrary.Handlers
         {
 
 
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "GetDirectories Called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = path,
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 1
-            });
+            DebugHandler.TraceMessage("GetDirectories Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage("Directory Path: " + path, DebugSource.TASK, DebugType.PARAMETERS);
+           
             
             try
             {
@@ -143,9 +127,11 @@ namespace LittleWeebLibrary.Handlers
                 List<JsonDirectory> directorieswithpath = new List<JsonDirectory>();
                 foreach (string directory in dirs)
                 {
-                    JsonDirectory directorywithpath = new JsonDirectory();
-                    directorywithpath.dirname = directory.Replace(Path.GetDirectoryName(directory) + Path.DirectorySeparatorChar, "");
-                    directorywithpath.path = directory;
+                    JsonDirectory directorywithpath = new JsonDirectory
+                    {
+                        dirname = directory.Replace(Path.GetDirectoryName(directory) + Path.DirectorySeparatorChar, ""),
+                        path = directory
+                    };
                     tosendover.directories.Add(directorywithpath);
                 }
                 return tosendover.ToJson();
@@ -154,26 +140,25 @@ namespace LittleWeebLibrary.Handlers
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+                DebugHandler.TraceMessage("Failed getting directories: " + e.ToString(), DebugSource.TASK, DebugType.WARNING);
+
+                JsonError jsonError = new JsonError
                 {
-                    DebugMessage = e.ToString(),
-                    DebugSource = this.GetType().Name,
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                    type = "get_drives_error",
+                    errortype = "exception",
+                    errormessage = "Could not get drives, see log.",
+                    exception = e.ToString()
+                };
 
-                JsonError error = new JsonError();
-                error.type = "get_drives_error";
-                error.errortype = "exception";
-                error.errormessage = "Could not get drives, see log.";
-                error.exception = e.ToString();
-
-                return error.ToJson();
+                return jsonError.ToJson();
             }
         }
 
         public string DeleteDirectory(string path)
         {
+
+            DebugHandler.TraceMessage("DeleteDirectory Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage("Directory Path: " + path, DebugSource.TASK, DebugType.PARAMETERS);
             try
             {
                 DirectoryInfo info = new DirectoryInfo(path);
@@ -185,7 +170,7 @@ namespace LittleWeebLibrary.Handlers
 
                         Directory.Delete(path);
 
-                        JsonSuccesReport report = new JsonSuccesReport()
+                        JsonSuccess report = new JsonSuccess()
                         {
                             message = "Succesfully deleted folder with path: " + path
                         };
@@ -196,7 +181,7 @@ namespace LittleWeebLibrary.Handlers
                     else
                     {
 
-                        JsonSuccesReport report = new JsonSuccesReport()
+                        JsonSuccess report = new JsonSuccess()
                         {
                             message = "Directory with path : " + path + " already removed."
                         };
@@ -207,67 +192,41 @@ namespace LittleWeebLibrary.Handlers
                 }
                 else
                 {
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+                    DebugHandler.TraceMessage("Could not delete directory: " + path + " because there are still files and/or other directories inside!", DebugSource.TASK, DebugType.WARNING);
+
+
+                    JsonError jsonError = new JsonError
                     {
-                        DebugMessage = "Could not delete directory: " + path + " because there are still files and/or other directories inside!",
-                        DebugSource = this.GetType().Name,
-                        DebugSourceType = 1,
-                        DebugType = 3
-                    });
+                        type = "delete_directory_warning",
+                        errortype = "warning",
+                        errormessage = "Could not delete directory: " + path + " because there are still files and/or other directories inside!"
+                    };
 
-                    JsonError error = new JsonError();
-                    error.type = "delete_directory_warning";
-                    error.errortype = "warning";
-                    error.errormessage = "Could not delete directory: " + path + " because there are still files and/or other directories inside!";
-
-                    return error.ToJson();
+                    return jsonError.ToJson();
                 }
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+
+                DebugHandler.TraceMessage("Could not delete directory: " + e.ToString(), DebugSource.TASK, DebugType.WARNING);
+
+                JsonError jsonError = new JsonError
                 {
-                    DebugMessage = e.ToString(),
-                    DebugSource = this.GetType().Name,
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                    type = "delete_directory_error",
+                    errortype = "exception",
+                    errormessage = "Could not get drives, see log."
+                };
 
-                JsonError error = new JsonError();
-                error.type = "delete_directory_error";
-                error.errortype = "exception";
-                error.errormessage = "Could not get drives, see log.";
-
-                return error.ToJson();
+                return jsonError.ToJson();
             }
         }
 
         public string CreateDirectory(string path, string name)
         {
 
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "CreateDirectory Called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = path,
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 1
-            });
-
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = name,
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 1
-            });
+            DebugHandler.TraceMessage("CreateDirectory Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage("Directory Path: " + path + ", Directory name: " + name, DebugSource.TASK, DebugType.PARAMETERS);
+        
 
             try
             {
@@ -279,41 +238,30 @@ namespace LittleWeebLibrary.Handlers
                 }
                 else
                 {
-                    JsonError err = new JsonError();
-                    err.type = "creating_directory_path_already_exists";
+                    DebugHandler.TraceMessage("Could not create directory: Directory already exists!", DebugSource.TASK, DebugType.WARNING);
 
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+                    JsonError jsonError = new JsonError
                     {
-                        DebugMessage = "Directory already exists!",
-                        DebugSource = this.GetType().Name,
-                        DebugSourceType = 1,
-                        DebugType = 3
-                    });
+                        type = "directory_already_exists",
+                        errortype = "warning",
+                        errormessage = "Directory already exist."
+                    };
 
-                    JsonError error = new JsonError();
-                    error.type = "directory_already_exists";
-                    error.errortype = "warning";
-                    error.errormessage = "Directory already exist.";
-
-                    return error.ToJson();
+                    return jsonError.ToJson();
                 }
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+                DebugHandler.TraceMessage("Could not create directory: " + e.ToString(), DebugSource.TASK, DebugType.WARNING);
+
+                JsonError jsonError = new JsonError
                 {
-                    DebugMessage = e.ToString(),
-                    DebugSource = this.GetType().Name,
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                    type = "create_directory_error",
+                    errortype = "exception",
+                    errormessage = "Could not  create directory, see log."
+                };
 
-                JsonError error = new JsonError();
-                error.type = "create_directory_error";
-                error.errortype = "exception";
-                error.errormessage = "Could not  create directory, see log.";
-
-                return error.ToJson();
+                return jsonError.ToJson();
 
             }
         }
@@ -321,21 +269,10 @@ namespace LittleWeebLibrary.Handlers
         
         public string OpenDirectory(string directoryPath)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "OpenDirectory Called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
 
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = directoryPath,
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 1
-            });
+
+            DebugHandler.TraceMessage("OpenDirectory Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage("Directory Path: " + directoryPath, DebugSource.TASK, DebugType.PARAMETERS);
 
             try
             {
@@ -360,7 +297,7 @@ namespace LittleWeebLibrary.Handlers
                     Process.Start("explorer.exe", directoryPath);
                 }
 #endif
-                JsonSuccesReport report = new JsonSuccesReport()
+                JsonSuccess report = new JsonSuccess()
                 {
                     message = "Succesfully opened folder with path: " + directoryPath
                 };
@@ -370,37 +307,31 @@ namespace LittleWeebLibrary.Handlers
             catch (Exception e)
             {
 
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+                DebugHandler.TraceMessage("Could not open directory: " + e.ToString(), DebugSource.TASK, DebugType.WARNING);
+
+                JsonError jsonError = new JsonError
                 {
-                    DebugMessage = e.ToString(),
-                    DebugSource = this.GetType().Name,
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                    type = "open_directory_failed",
+                    errormessage = "Could not open directory.",
+                    errortype = "exception"
+                };
 
-
-                JsonError err = new JsonError();
-                err.type = "open_directory_failed";
-                err.errormessage = "Could not open directory.";
-                err.errortype = "exception";
-
-                return err.ToJson();
+                return jsonError.ToJson();
 
             }
         }
 
         public string GetFreeSpace(string path)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "GetFreeSpace Called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
 
-            JsonFreeSpace space = new JsonFreeSpace();
-            space.freespacebytes = UtilityMethods.GetFreeSpace(path);
+
+            DebugHandler.TraceMessage("GetFreeSpace Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage("Directory Path: " + path, DebugSource.TASK, DebugType.PARAMETERS);
+
+            JsonFreeSpace space = new JsonFreeSpace
+            {
+                freespacebytes = UtilityMethods.GetFreeSpace(path),
+            };
             space.freespacekbytes = space.freespacebytes / 1024;
             space.freespacembytes = space.freespacekbytes / 1024;
 

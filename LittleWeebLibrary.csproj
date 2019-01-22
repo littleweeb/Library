@@ -63,6 +63,9 @@
     <Reference Include="Mono.Android">
       <HintPath>SpecialLibraries\Mono.Android.dll</HintPath>
     </Reference>
+    <Reference Include="WeebFileNameParser">
+      <HintPath>..\WeebFileNameParser\WeebFileNameParser\bin\Debug\netstandard2.0\WeebFileNameParser.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>

@@ -1,5 +1,6 @@
 ﻿using LittleWeebLibrary.EventArguments;
 using LittleWeebLibrary.GlobalInterfaces;
+using LittleWeebLibrary.StaticClasses;
 using LittleWeebLibrary.Handlers;
 using LittleWeebLibrary.Models;
 using LittleWeebLibrary.Settings;
@@ -17,37 +18,25 @@ namespace LittleWeebLibrary.Services
         Task CheckVersion();
     }
 
-    public class VersionWebSocketService : IVersionWebSocketService, IDebugEvent
+    public class VersionWebSocketService : IVersionWebSocketService
     {
-        public event EventHandler<BaseDebugArgs> OnDebugEvent;
 
         private IVersionHandler VersionHandler;
         private IWebSocketHandler WebSocketHandler;
+        private IDebugHandler DebugHandler;
 
-        public VersionWebSocketService(IWebSocketHandler webSocketHandler, IVersionHandler versionHandler)
+        public VersionWebSocketService(IWebSocketHandler webSocketHandler, IVersionHandler versionHandler, IDebugHandler debugHandler)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "Constructor called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 0,
-                DebugType = 0
-            });
+            debugHandler.TraceMessage("Constructor called.", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
 
             VersionHandler = versionHandler;
             WebSocketHandler = webSocketHandler;
+            DebugHandler = debugHandler;
         }
 
         public async Task CheckVersion()
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "CheckVersion called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-
+            DebugHandler.TraceMessage("CheckVersion called", DebugSource.TASK, DebugType.ENTRY_EXIT);
             JsonVersionInfo versionInfoDevelop = new JsonVersionInfo();
             JsonVersionInfo versionInfoRelease = new JsonVersionInfo();
 
@@ -69,21 +58,10 @@ namespace LittleWeebLibrary.Services
 
                 if (versionInfoDevelop.newversion != "Not Found" && currentVersion.currentversion != "Not Found")
                 {
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugMessage = "Current: " + currentVersion.ToJson(),
-                        DebugSource = this.GetType().Name,
-                        DebugSourceType = 1,
-                        DebugType = 2
-                    });
 
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugMessage = "Develop: " + versionInfoDevelop.ToJson(),
-                        DebugSource = this.GetType().Name,
-                        DebugSourceType = 1,
-                        DebugType = 2
-                    });
+
+                    DebugHandler.TraceMessage("Current: " + currentVersion.ToJson(), DebugSource.TASK, DebugType.INFO);
+                    DebugHandler.TraceMessage("Develop: " + versionInfoDevelop.ToJson(), DebugSource.TASK, DebugType.INFO);
 
                     int currentBuild = int.Parse(currentVersion.currentbuild);
                     int newBuild = int.Parse(versionInfoDevelop.newbuild);
@@ -101,21 +79,10 @@ namespace LittleWeebLibrary.Services
 
                 if (versionInfoRelease.newversion != "Not Found" && currentVersion.currentversion != "Not Found")
                 {
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugMessage = "Current: " + currentVersion.ToJson(),
-                        DebugSource = this.GetType().Name,
-                        DebugSourceType = 1,
-                        DebugType = 2
-                    });
 
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugMessage = "Release: " + versionInfoRelease.ToJson(),
-                        DebugSource = this.GetType().Name,
-                        DebugSourceType = 1,
-                        DebugType = 2
-                    });
+                    DebugHandler.TraceMessage("Current: " + currentVersion.ToJson(), DebugSource.TASK, DebugType.INFO);
+                    DebugHandler.TraceMessage("Develop: " + versionInfoRelease.ToJson(), DebugSource.TASK, DebugType.INFO);
+                    
                     int currentBuild = int.Parse(currentVersion.currentbuild);
                     int newBuild = int.Parse(versionInfoRelease.newbuild);
                     if (versionInfoRelease.newversion == currentVersion.currentversion && currentBuild >= newBuild)
@@ -141,16 +108,8 @@ namespace LittleWeebLibrary.Services
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugMessage = e.ToString(),
-                    DebugSource = this.GetType().Name,
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
             }
-
-
         }
     }
 }
