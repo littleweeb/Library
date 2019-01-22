@@ -3,12 +3,14 @@ using Newtonsoft.Json.Linq;
 
 namespace LittleWeebLibrary.Models
 {
-    class JsonFreeSpace
+    public class JsonKitsuAnimeInfo
     {
-        public string type = "free_space";
-        public long freespacebytes { get; set; } = -1;
-        public long freespacekbytes { get; set; } = -1;
-        public long freespacembytes { get; set; } = -1;
+        public string type { get; set; } = "kitsu_anime_info";
+        public JObject anime_info { get; set; } = new JObject();
+        public JArray anime_relations { get; set; } = new JArray();
+        public JArray anime_episodes { get; set; } = new JArray();
+        public JArray anime_categories { get; set; } = new JArray();
+        public JArray anime_genres { get; set; } = new JArray();
 
         public string ToJson()
         {

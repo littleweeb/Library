@@ -13,57 +13,49 @@ namespace LittleWeebLibrary.Handlers
         string RemoveFileFromFileHistory(string id = null, string filepath = null);
         JsonDownloadHistoryList GetCurrentFileHistory();
     }
-    public class FileHistoryHandler : IFileHistoryHandler, IDebugEvent
+    public class FileHistoryHandler : IFileHistoryHandler
     {
-        public event EventHandler<BaseDebugArgs> OnDebugEvent;
+       
 
         private readonly string fileHistoryPath = "";
         private readonly string fileName = "";
 
-        public FileHistoryHandler()
+        private readonly IDebugHandler DebugHandler;
+
+        public FileHistoryHandler(IDebugHandler debugHandler)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "Constructor called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 0,
-                DebugType = 0
-            });
+
+            debugHandler.TraceMessage("Constructor Called", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
+            DebugHandler = debugHandler;
 
 #if __ANDROID__
             fileHistoryPath = Path.Combine(Path.Combine(Android.OS.Environment.ExternalStorageDirectory.AbsolutePath, "LittleWeeb"), "FileHistory");
 #else
-            fileHistoryPath = Path.Combine(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LittleWeeb"), "FileHistory");
+            fileHistoryPath = Path.Combine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "LittleWeeb"), "FileHistory");
 #endif
             fileName = "FileHistory.json";
 
             if (!Directory.Exists(fileHistoryPath))
             {
+                DebugHandler.TraceMessage("File History directory does not exist, creating: " + fileHistoryPath, DebugSource.CONSTRUCTOR, DebugType.INFO);
                 Directory.CreateDirectory(fileHistoryPath);
-
             }
 
-           
+            if (!File.Exists(Path.Combine(fileHistoryPath, fileName))) {
+
+                DebugHandler.TraceMessage("File History file does not exist, creating: " + Path.Combine(fileHistoryPath, fileName), DebugSource.CONSTRUCTOR, DebugType.INFO);
+                File.Create(Path.Combine(fileHistoryPath, fileName));
+            }
+
 
         }
 
         public void AddFileToFileHistory(JsonDownloadInfo downloadInfo)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "AddFileToFileHistory called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
 
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = downloadInfo.ToString(),
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 1
-            });
+            DebugHandler.TraceMessage("AddFileToFileHistory Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(downloadInfo.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
+           
 
             if (!File.Exists(Path.Combine(fileHistoryPath, fileName)))
             {
@@ -103,14 +95,14 @@ namespace LittleWeebLibrary.Handlers
                 foreach (JsonDownloadHistory downloadHistoryObject in list.downloadHistorylist)
                 {
 
-                    if (downloadHistoryObject.animeInfo.animeid == downloadInfo.animeInfo.animeid)
+                    if (downloadHistoryObject.animeInfo.anime_id == downloadInfo.animeInfo.anime_id)
                     {
                         animeAlreadyExists = true;
 
                         int downloadIndex = 0;
                         foreach (JsonDownloadInfo info in downloadHistoryObject.downloadHistory)
                         {
-                            if (info.id == downloadInfo.id)
+                            if (info.id == downloadInfo.id || info.filename == downloadInfo.filename || (info.pack == downloadInfo.pack && info.bot == downloadInfo.bot))
                             {
                                 list.downloadHistorylist[listIndex].downloadHistory[downloadIndex] = downloadInfo;
                                 fileAlreadyExists = true;
@@ -152,35 +144,17 @@ namespace LittleWeebLibrary.Handlers
 
         public string RemoveFileFromFileHistory(string id = null, string filepath = null)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "RemoveFileFromFileHistory called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
+
+            DebugHandler.TraceMessage("RemoveFileFromFileHistory Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
+
 
             if (id != null)
             {
-
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugMessage = id,
-                    DebugSource = this.GetType().Name,
-                    DebugSourceType = 1,
-                    DebugType = 1
-                });
+                DebugHandler.TraceMessage("ID: " + id , DebugSource.TASK, DebugType.PARAMETERS);
             }
             if (filepath != null)
             {
-
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugMessage = filepath,
-                    DebugSource = this.GetType().Name,
-                    DebugSourceType = 1,
-                    DebugType = 1
-                });
+                DebugHandler.TraceMessage("Filepath: " + filepath, DebugSource.TASK, DebugType.PARAMETERS);
             }
 
             if (File.Exists(Path.Combine(fileHistoryPath, fileName)))
@@ -262,14 +236,8 @@ namespace LittleWeebLibrary.Handlers
 
         public JsonDownloadHistoryList GetCurrentFileHistory()
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "GetCurrentFileHistory called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1, 
-                DebugType = 0
-            });
 
+            DebugHandler.TraceMessage("GetCurrentFileHistory Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
             string readContent = "";
             using (var fileStream = File.Open(Path.Combine(fileHistoryPath, fileName), FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
             {

@@ -9,24 +9,19 @@ using System;
 
 namespace LittleWeebLibrary.Controllers.SubControllers
 {
-    public class DirectoryWebSocketController : ISubWebSocketController, IDebugEvent
+    public class DirectoryWebSocketController : ISubWebSocketController
     {
 
-        public event EventHandler<BaseDebugArgs> OnDebugEvent;
+       
 
         private readonly IWebSocketHandler WebSocketHandler;
         private readonly IDirectoryWebSocketService DirectoryWebSocketService;
+        private readonly IDebugHandler DebugHandler;
 
-        public DirectoryWebSocketController(IWebSocketHandler webSocketHandler, IDirectoryWebSocketService directoryWebSocketService)
+        public DirectoryWebSocketController(IWebSocketHandler webSocketHandler, IDirectoryWebSocketService directoryWebSocketService, IDebugHandler debugHandler)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "DirectoryWebSocketController called.",
-                DebugSourceType = 0,
-                DebugType = 0
-            });
-
+            debugHandler.TraceMessage("Contructor Called.", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
+            DebugHandler = debugHandler;
             DirectoryWebSocketService = directoryWebSocketService;
             WebSocketHandler = webSocketHandler;
         }
@@ -34,23 +29,9 @@ namespace LittleWeebLibrary.Controllers.SubControllers
 
         public void OnWebSocketEvent(WebSocketEventArgs args)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "Method OnWebSocketEvent called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
 
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = args.ToString(),
-                DebugSourceType = 1,
-                DebugType = 1
-            });
-
-
+            DebugHandler.TraceMessage("OnWebSocketEvent Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(args.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
             try
             {
                 try
@@ -90,14 +71,8 @@ namespace LittleWeebLibrary.Controllers.SubControllers
                 }
                 catch (JsonReaderException e)
                 {
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugSource = this.GetType().Name,
-                        DebugMessage = e.ToString(),
-                        DebugSourceType = 1,
-                        DebugType = 4
-                    });
-
+                    DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
+                   
                     JsonError error = new JsonError()
                     {
                         type = "command_error",
@@ -111,13 +86,8 @@ namespace LittleWeebLibrary.Controllers.SubControllers
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.ERROR);
 
                 JsonError error = new JsonError()
                 {

@@ -6,27 +6,27 @@ using LittleWeebLibrary.Services;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Generic;
+using System.Text;
 
-namespace LittleWeebLibrary.Controllers
+namespace LittleWeebLibrary.Controllers.SubControllers
 {
-    public class FileWebSocketController : ISubWebSocketController
+    public class VersionWebSocketController : ISubWebSocketController
     {
-
        
 
-        private readonly IFileWebSocketService FileWebSocketService;
+        private readonly IVersionWebSocketService VersionWebSocketService;
         private readonly IWebSocketHandler WebSocketHandler;
         private readonly IDebugHandler DebugHandler;
 
-        public FileWebSocketController(IWebSocketHandler webSocketHandler, IFileWebSocketService fileWebSocketService, IDebugHandler debugHandler)
+        public VersionWebSocketController(IWebSocketHandler webSocketHandler, IVersionWebSocketService versionWebSocketService, IDebugHandler debugHandler)
         {
+
             debugHandler.TraceMessage("Constructor Called.", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
             DebugHandler = debugHandler;
-            FileWebSocketService = fileWebSocketService;
+            VersionWebSocketService = versionWebSocketService;
             WebSocketHandler = webSocketHandler;
         }
-
-      
 
         public void OnWebSocketEvent(WebSocketEventArgs args)
         {
@@ -36,33 +36,27 @@ namespace LittleWeebLibrary.Controllers
 
             try
             {
-                try{
+                try
+                {
                     JObject query = JObject.Parse(args.Message);
                     string action = query.Value<string>("action");
 
                     if (action != null)
                     {
-                        JObject extra = query.Value<JObject>("extra");
 
-                        if (extra != null)
+                        switch (action)
                         {
-                            switch (action)
-                            {
-                                case "delete_file":
-                                    FileWebSocketService.DeleteFile(extra);
-                                    break;
-                                case "open_file":
-                                    FileWebSocketService.OpenFile(extra);
-                                    break;
-                            }
+
+                            case "check_version":
+                                VersionWebSocketService.CheckVersion();
+                                break;
                         }
-                    
                     }
                 }
                 catch (JsonReaderException e)
                 {
-                    DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
 
+                    DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
                     JsonError error = new JsonError()
                     {
                         type = "command_error",
@@ -75,7 +69,9 @@ namespace LittleWeebLibrary.Controllers
             }
             catch (Exception e)
             {
+
                 DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.ERROR);
+
                 JsonError error = new JsonError()
                 {
                     type = "command_error",
@@ -85,7 +81,6 @@ namespace LittleWeebLibrary.Controllers
                 };
                 WebSocketHandler.SendMessage(error.ToJson());
             }
-
         }
     }
 }

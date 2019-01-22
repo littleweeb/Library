@@ -50,8 +50,8 @@
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
-    <PackageReference Include="SimpleIRCLib" Version="2.1.1" />
-    <PackageReference Include="SimpleWebsocketServer" Version="1.0.2" />
+    <PackageReference Include="SimpleIRCLib" Version="2.2.0" />
+    <PackageReference Include="SimpleWebsocketServer" Version="1.1.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -62,6 +62,9 @@
   <ItemGroup>
     <Reference Include="Mono.Android">
       <HintPath>SpecialLibraries\Mono.Android.dll</HintPath>
+    </Reference>
+    <Reference Include="WeebFileNameParser">
+      <HintPath>..\WeebFileNameParser\WeebFileNameParser\bin\Debug\netstandard2.0\WeebFileNameParser.dll</HintPath>
     </Reference>
   </ItemGroup>
 

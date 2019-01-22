@@ -10,22 +10,18 @@ namespace LittleWeebLibrary.Controllers
     {
         void SetSubControllers(List<ISubWebSocketController> subControllers);
     }
-    public class BaseWebSocketController : IBaseWebSocketController,IDebugEvent
+    public class BaseWebSocketController : IBaseWebSocketController
     {
-        public event EventHandler<BaseDebugArgs> OnDebugEvent;
+       
         private readonly IWebSocketHandler WebSocketHandler;
+        private readonly IDebugHandler DebugHandler;
         private List<ISubWebSocketController> SubControllers;
 
-        public BaseWebSocketController(IWebSocketHandler webSocketHandler)
+        public BaseWebSocketController(IWebSocketHandler webSocketHandler, IDebugHandler debugHandler)
         {
 
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "Constructor Called",
-                DebugSourceType = 0,
-                DebugType = 0
-            });
+            debugHandler.TraceMessage("Constructor Called.", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
+            DebugHandler = debugHandler;
 
             WebSocketHandler = webSocketHandler;
             WebSocketHandler.OnWebSocketEvent += OnWebSocketEvent;
@@ -35,26 +31,13 @@ namespace LittleWeebLibrary.Controllers
 
         public void SetSubControllers(List<ISubWebSocketController> subControllers)
         {
+            DebugHandler.TraceMessage("SetSubControllers called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
             SubControllers = subControllers;
         }
 
         private void OnWebSocketEvent(object sender, WebSocketEventArgs args)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                DebugMessage = "Event OnWebSocketEvent called.",
-                DebugSourceType = 2,
-                DebugType = 0
-            });
-
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                DebugMessage = args.ToString(),
-                DebugSourceType = 2,
-                DebugType = 1
-            });
+            DebugHandler.TraceMessage("OnWebSocketEvent called", DebugSource.TASK, DebugType.ENTRY_EXIT);
 
             try{
                 foreach (ISubWebSocketController controller in SubControllers)
@@ -64,13 +47,7 @@ namespace LittleWeebLibrary.Controllers
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 2,
-                    DebugType = 4
-                });
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.ERROR);
             }
         }
     }

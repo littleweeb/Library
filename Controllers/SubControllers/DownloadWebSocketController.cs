@@ -9,25 +9,20 @@ using Newtonsoft.Json;
 
 namespace LittleWeebLibrary.Controllers
 {
-    public class DownloadWebSocketController : ISubWebSocketController, IDebugEvent
+    public class DownloadWebSocketController : ISubWebSocketController
     {
 
-        public event EventHandler<BaseDebugArgs> OnDebugEvent;
+       
 
         private readonly IDownloadWebSocketService DownloadWebSocketService;
         private readonly IWebSocketHandler WebSocketHandler;
         private readonly IDirectoryWebSocketService DirectoryWebSocketService;
+        private readonly IDebugHandler DebugHandler;
 
-        public DownloadWebSocketController(IWebSocketHandler webSocketHandler, IDownloadWebSocketService downloadWebSocketService, IDirectoryWebSocketService directoryWebSocketService)
+        public DownloadWebSocketController(IWebSocketHandler webSocketHandler, IDownloadWebSocketService downloadWebSocketService, IDirectoryWebSocketService directoryWebSocketService, IDebugHandler debugHandler)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "DownloadWebSocketController called.",
-                DebugSourceType = 0,
-                DebugType = 0
-            });
-
+            debugHandler.TraceMessage("Constructor Called.", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
+            DebugHandler = debugHandler;
             DownloadWebSocketService = downloadWebSocketService;
             WebSocketHandler = webSocketHandler;
             DirectoryWebSocketService = directoryWebSocketService;
@@ -36,22 +31,8 @@ namespace LittleWeebLibrary.Controllers
       
         public void OnWebSocketEvent(WebSocketEventArgs args)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "OnWebSocketEvent called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = args.ToString(),
-                DebugSourceType = 1,
-                DebugType = 1
-            });
-
+            DebugHandler.TraceMessage("OnWebSocketEvent Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(args.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
 
             try
             {
@@ -71,8 +52,11 @@ namespace LittleWeebLibrary.Controllers
                                 case "add_download":
                                     DownloadWebSocketService.AddDownload(extra);
                                     break;
+                                case "add_downloads":
+                                    DownloadWebSocketService.AddDownloads(extra);
+                                    break;
                                 case "abort_download":
-                                    DownloadWebSocketService.RemoveDownload(extra);
+                                    DownloadWebSocketService.AbortDownload(extra);
                                     break;
                                 case "remove_download":
                                     DownloadWebSocketService.RemoveDownload(extra);
@@ -98,13 +82,7 @@ namespace LittleWeebLibrary.Controllers
                 }
                 catch (JsonReaderException e)
                 {
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugSource = this.GetType().Name,
-                        DebugMessage = e.ToString(),
-                        DebugSourceType = 1,
-                        DebugType = 4
-                    });
+                    DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
 
                     JsonError error = new JsonError()
                     {
@@ -118,14 +96,7 @@ namespace LittleWeebLibrary.Controllers
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
-
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.ERROR);
                 JsonError error = new JsonError()
                 {
                     type = "command_error",

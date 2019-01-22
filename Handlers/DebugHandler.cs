@@ -1,89 +1,125 @@
 ﻿using LittleWeebLibrary.EventArguments;
 using LittleWeebLibrary.GlobalInterfaces;
 using LittleWeebLibrary.Settings;
+using LittleWeebLibrary.StaticClasses;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace LittleWeebLibrary.Handlers
 {
 
+    public enum DebugSource { CONSTRUCTOR, METHOD, EVENT, TASK, EXTERNAL, UNDEFINED };
+    public enum DebugType { NONE, ENTRY_EXIT, PARAMETERS, INFO, WARNING, ERROR };
+
     public interface IDebugHandler
     {
-        void UpdateDebugEvents(List<IDebugEvent> debugEvents);
-        void SetDebugEvents(List<IDebugEvent> debugEvents);
+        void StopDebugger();
+        void SetSettings(ISettingsHandler settingsHandler);
+        void TraceMessage(string message, DebugSource sourcetype, DebugType debugtype,
+        [System.Runtime.CompilerServices.CallerMemberName] string memberName = "",
+        [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "",
+        [System.Runtime.CompilerServices.CallerLineNumber] int sourceLineNumber = 0);
     }
 
-    public class DebugHandler : IDebugHandler, ISettingsInterface
+    public class DebugHandler : IDebugHandler
     {
         private string currentLog;
 
         private bool DebugWriteAble = false;
-        private string DebugFileName = "littleweeb_debug_log.log";
+        private readonly string DebugFileName = "littleweeb_debug_log.log";
         private string DebugPath = "";
-        private string[] DebugTypes = new string[] { "ENTRY", "PARAMETERS", "INFO", "WARNING", "ERROR", "SEVERE" };
-        private string[] DebugSourceTypes = new string[] { "CONSTRUCTOR", "METHOD", "EVENT", "TASK", "EXTERNAL(LIBRARY)" };
+        private readonly string[] DebugTypes = new string[] { "NOT DEFINED", "ENTRY/EXIT", "PARAMETERS", "INFO", "WARNING", "ERROR" };
+        private readonly string[] DebugSourceTypes = new string[] { "CONSTRUCTOR", "METHOD", "EVENT", "TASK", "EXTERNAL(LIBRARY)", "NOT DEFINED" };
+        private readonly ConcurrentBag<string[]> MessageQueue;
         private LittleWeebSettings LittleWeebSettings;
+        private bool stop = false;
 
+        private ISettingsHandler SettingsHandler;
 
-        public DebugHandler(ISettingsHandler settingsHandler)
+        public DebugHandler()
         {
 
-            LittleWeebSettings = settingsHandler.GetLittleWeebSettings();
+            LittleWeebSettings = new LittleWeebSettings()
+            {
+                Local = true,
+                Port = 1515,
+                DebugLevel = new List<int>() { 0, 1, 2, 3, 4, 5 },
+                DebugType = new List<int>() { 0, 1, 2, 3, 4 },
+                RandomUsernameLength = 6,
+                MaxDebugLogSize = 2000
+            };
 
+            MessageQueue = new ConcurrentBag<string[]>();
 
             foreach (int level in LittleWeebSettings.DebugLevel)
             {
                 WriteTrace("DEBUG LEVEL: " + level);
             }
 
-            currentLog = "";
-           
+            currentLog = "";        
 
             CreateFile();
+#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+            TraceWriter();
+#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
             WriteTrace("Succesfully initiated debug handler!");
 
+        }       
+
+        public void SetSettings(ISettingsHandler settingsHandler)
+        {
+            LittleWeebSettings = settingsHandler.GetLittleWeebSettings();
+            SettingsHandler = settingsHandler;
         }
 
-        public void SetDebugEvents(List<IDebugEvent> debugEvents)
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Await.Warning", "CS4014:Await.Warning")]
+        private async Task TraceWriter()
         {
-            foreach (IDebugEvent debugEvent in debugEvents)
+            while (!stop)
             {
+
                 try
                 {
+                    string[] debugMessage;
+                    bool succes = MessageQueue.TryTake(out debugMessage);
+                    if (succes)
+                    {
+                        DebugFileWriter(debugMessage);
+                    }
 
-                    debugEvent.OnDebugEvent += OnDebugEvent;
                 }
                 catch (Exception e)
                 {
-                    DebugFileWriter(e.ToString(), this.GetType().ToString(), 0, 4);
+                    WriteTrace(e.ToString());
+                }
+
+                if (MessageQueue.Count != 0)
+                {
+                    await Task.Delay(10);
+                }
+                else
+                {
+                    await Task.Delay(500);
                 }
             }
         }
 
-        public void UpdateDebugEvents(List<IDebugEvent> debugEvents)
+        public void TraceMessage(string message, DebugSource sourcetype, DebugType debugtype,
+        [System.Runtime.CompilerServices.CallerMemberName] string memberName = "",
+        [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "",
+        [System.Runtime.CompilerServices.CallerLineNumber] int sourceLineNumber = 0)
         {
-            foreach (IDebugEvent debugEvent in debugEvents)
-            {
-                debugEvent.OnDebugEvent += OnDebugEvent;
-            }
-        }
 
-        public void SetIrcSettings(IrcSettings settings)
-        {
+            string[] debugMessage = new string[] { message, memberName, sourceFilePath, sourceLineNumber.ToString(), DebugSourceTypes[(int)sourcetype], DebugTypes[(int)debugtype] };
+
+            WriteTrace("TRACEMESSAGE|" + debugMessage[4] + "|[" + debugMessage[1] + ", " + debugMessage[2] + "," + debugMessage[3] + "]|" + debugMessage[5] + "|" + debugMessage[0] + "|");
+            MessageQueue.Add(debugMessage);
             
-        }
-
-        public void SetLittleWeebSettings(LittleWeebSettings settings)
-        {
-            LittleWeebSettings = settings;
-        }
-
-        private void OnDebugEvent(object sender, BaseDebugArgs args)
-        {
-            DebugFileWriter(args.DebugMessage, args.DebugSource, args.DebugSourceType, args.DebugType);
         }
 
         private async void CreateFile()
@@ -94,7 +130,7 @@ namespace LittleWeebLibrary.Handlers
 #if __ANDROID__
                 DebugPath = Path.Combine(Path.Combine(Android.OS.Environment.ExternalStorageDirectory.AbsolutePath, "LittleWeeb"), "DebugLog");
 #else
-                DebugPath = Path.Combine(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LittleWeeb"), "DebugLog");
+                DebugPath = Path.Combine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "LittleWeeb"), "DebugLog");
 #endif
                 if (!Directory.Exists(DebugPath))
                 {
@@ -139,74 +175,59 @@ namespace LittleWeebLibrary.Handlers
             }
         }
 
-        private async void DebugFileWriter(string toWrite, string source, int sourceType, int debugType)
-        {
-           
+        private async void DebugFileWriter(string[] message)
+        {           
             try
             {
-
-                if (DebugWriteAble && LittleWeebSettings.DebugLevel.Contains(debugType) && LittleWeebSettings.DebugType.Contains(sourceType))
+                if (DebugWriteAble && LittleWeebSettings.DebugLevel.Contains(Array.IndexOf<string>(DebugTypes, message[4])) && LittleWeebSettings.DebugType.Contains(Array.IndexOf<string>(DebugSourceTypes, message[5])))
                 {
                     string debugSourceType = "";
 
-                    if (sourceType == 99)
+                    if (message[5] == "NOT DEFINED")
                     {
-                        debugSourceType = "UNDEFINED";
+                        debugSourceType = "NOT DEFINED";
                     }
                     else
                     {
-                        debugSourceType = DebugSourceTypes[sourceType];
+                        debugSourceType = message[5];
                     }
 
-                    string toWriteString = DebugTypes[debugType] + "|" + source + "|" + debugSourceType + "|" + toWrite + "|" + DateTime.UtcNow.ToShortTimeString();
-                    if (currentLog.Split(new string[] { Environment.NewLine }, StringSplitOptions.None).Length >= LittleWeebSettings.MaxDebugLogSize)
+                    string toWriteString = "|" + message[4] + "|[" + message[1] + ", " + message[2] + "," + message[3] + "]|" + debugSourceType + "|" + message[0] + "|" ;
+
+                    using (var fileStream = File.Open(Path.Combine(DebugPath, DebugFileName), FileMode.Truncate, FileAccess.ReadWrite, FileShare.ReadWrite))
                     {
-
-                        string[] currentLogArray = currentLog.Split(new string[] { Environment.NewLine }, StringSplitOptions.None).Skip((LittleWeebSettings.MaxDebugLogSize / 2)).ToArray();
-
-                        string fullLog = "";
-
-                        foreach (string line in currentLogArray)
+                        using (var streamReader = new StreamReader(fileStream))
                         {
-                            fullLog += line + Environment.NewLine;
+                            currentLog = streamReader.ReadToEnd();
                         }
 
-                        fullLog += toWriteString;
-
-                        using (var fileStream = File.Open(Path.Combine(DebugPath, DebugFileName), FileMode.Truncate, FileAccess.ReadWrite, FileShare.ReadWrite))
+                        if (currentLog.Split(new string[] { Environment.NewLine }, StringSplitOptions.None).Length > LittleWeebSettings.MaxDebugLogSize)
                         {
-                            using (var streamWriter = new StreamWriter(fileStream))
-                            {
-                                currentLog = fullLog;
-                                await streamWriter.WriteAsync(fullLog);
-                            }
+                            currentLog = currentLog.Skip(toWriteString.Split(new string[] { Environment.NewLine }, StringSplitOptions.None).Length) + Environment.NewLine;
+                        }
+
+                        using (var streamWriter = new StreamWriter(fileStream))
+                        {
+                            await streamWriter.WriteAsync(currentLog);
                         }
                     }
-                    else
-                    {
-                        using (var fileStream = File.Open(Path.Combine(DebugPath, DebugFileName), FileMode.Append, FileAccess.Write, FileShare.ReadWrite))
-                        {
-                            using (var streamWriter = new StreamWriter(fileStream))
-                            {
-                                currentLog += toWriteString;
-                                await streamWriter.WriteLineAsync(toWriteString);
-                            }
-                        }
-                    }
+                  
                 }
             }
             catch (Exception e)
             {
                 WriteTrace(e.ToString());
-            }
-           
-           
+            }        
         }
 
-        [Conditional("DEBUG")]
         private void WriteTrace(string toWrite)
         {
-            Trace.WriteLine(toWrite);
+            Console.WriteLine(toWrite);
+        }
+
+        public void StopDebugger()
+        {
+            stop = true;
         }
     }
 

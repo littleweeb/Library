@@ -17,13 +17,20 @@ namespace LittleWeebLibrary.Models
 
         public override string ToString()
         {
-            JObject jobject = JObject.FromObject(this);
+            JObject jobject = ToJObject();
             string properties = string.Empty;
             foreach (var x in jobject)
             {
                 properties += x.Key + ": " + x.Value.ToString();
             }
             return properties;
+        }
+
+        public JObject ToJObject()
+        {
+
+            JObject jobject = JObject.FromObject(this);
+            return jobject;
         }
     }
 }

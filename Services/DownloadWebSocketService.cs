@@ -5,17 +5,21 @@ using LittleWeebLibrary.Models;
 using LittleWeebLibrary.Settings;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace LittleWeebLibrary.Services
 {
     public interface IDownloadWebSocketService
     {
-        void AddDownload(JObject downloadJson);
-        void RemoveDownload(JObject downloadJson);
-        void Openfullfilepath();
-        void GetCurrentFileHistory();
+        Task AddDownload(JObject downloadJson);
+        Task AddDownloads(JObject downloadJsonBatch);
+        Task AbortDownload(JObject downloadJson);
+        Task RemoveDownload(JObject downloadJson);
+        Task Openfullfilepath();
+        Task GetCurrentFileHistory();
     }
-    public class DownloadWebSocketService : IDownloadWebSocketService, IDebugEvent, ISettingsInterface
+    public class DownloadWebSocketService : IDownloadWebSocketService, ISettingsInterface
     {
 
         private readonly IWebSocketHandler WebSocketHandler;
@@ -24,12 +28,13 @@ namespace LittleWeebLibrary.Services
         private readonly IFileHistoryHandler FileHistoryHandler;
         private readonly IFileHandler FileHandler;
         private readonly ISettingsHandler SettingsHandler;
+        private readonly IDebugHandler DebugHandler;
         private LittleWeebSettings LittleWeebSettings;
         private IrcSettings IrcSettings;
 
         private JsonDownloadInfo LastDownloadedInfo;
 
-        public event EventHandler<BaseDebugArgs> OnDebugEvent;
+       
 
         public DownloadWebSocketService(
             IWebSocketHandler webSocketHandler,
@@ -37,16 +42,14 @@ namespace LittleWeebLibrary.Services
             IDownloadHandler downloadHandler,
             IFileHandler fileHandler,
             IFileHistoryHandler fileHistoryHandler,
-            ISettingsHandler settingsHandler)
+            ISettingsHandler settingsHandler,
+            IDebugHandler debugHandler)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "Constructor called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 0,
-                DebugType = 0
-            });
+            
 
+            debugHandler.TraceMessage("Constructor called.", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
+
+            DebugHandler = debugHandler;
             WebSocketHandler = webSocketHandler;
             DirectoryHandler = directoryHandler;
             DownloadHandler = downloadHandler;
@@ -62,36 +65,22 @@ namespace LittleWeebLibrary.Services
             downloadHandler.OnDownloadUpdateEvent += OnDownloadUpdateEvent;
         }
 
-        public void AddDownload(JObject downloadJson)
+        public async Task AddDownload(JObject downloadJson)
         {
 
-
-
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "AddDownload called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = downloadJson.ToString(),
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 1
-            });
-
+            DebugHandler.TraceMessage("AddDownload called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(downloadJson.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
+                    
             try
             {
                 JsonDownloadInfo downloadInfo = new JsonDownloadInfo()
                 {
                     animeInfo = new JsonAnimeInfo()
                     {
-                        animeid = downloadJson.Value<JObject>("animeInfo").Value<string>("animeid"),
-                        title = downloadJson.Value<JObject>("animeInfo").Value<string>("title"),
-                        cover_original = downloadJson.Value<JObject>("animeInfo").Value<string>("cover_original"),
-                        cover_small = downloadJson.Value<JObject>("animeInfo").Value<string>("cover_small")
+                        anime_id = downloadJson.Value<JObject>("animeInfo").Value<string>("animeid"),
+                        anime_title = downloadJson.Value<JObject>("animeInfo").Value<string>("title"),
+                        anime_cover_original = downloadJson.Value<JObject>("animeInfo").Value<string>("cover_original"),
+                        anime_cover_small = downloadJson.Value<JObject>("animeInfo").Value<string>("cover_small")
                     },
                     id = downloadJson.Value<string>("id"),
                     episodeNumber = downloadJson.Value<string>("episodeNumber"),
@@ -109,19 +98,13 @@ namespace LittleWeebLibrary.Services
 
                 string result = DownloadHandler.AddDownload(downloadInfo);
 
-                WebSocketHandler.SendMessage(result);
+                await WebSocketHandler.SendMessage(result);
             }
             catch (Exception e)
             {
 
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
-
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
+              
                 JsonError error = new JsonError()
                 {
                     type = "parse_download_to_add_error",
@@ -131,26 +114,15 @@ namespace LittleWeebLibrary.Services
                 };
 
 
-                WebSocketHandler.SendMessage(error.ToJson());
+                await WebSocketHandler.SendMessage(error.ToJson());
             }
         }
 
-        public void RemoveDownload(JObject downloadJson)
+        public async Task RemoveDownload(JObject downloadJson)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "RemoveDownload called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = downloadJson.ToString(),
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 1
-            });
+
+            DebugHandler.TraceMessage("RemoveDownload called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(downloadJson.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
 
             try
             {
@@ -161,22 +133,19 @@ namespace LittleWeebLibrary.Services
                 {
 
                     result = DownloadHandler.RemoveDownload(id, null);
+                    await WebSocketHandler.SendMessage(result);
 
                     string toRemove = FileHistoryHandler.RemoveFileFromFileHistory(id, null);
-
                     string resultRemove = FileHandler.DeleteFile(toRemove);
-
-                    WebSocketHandler.SendMessage(resultRemove);
+                    await  WebSocketHandler.SendMessage(resultRemove);
                 }
                 else if (filePath != null)
                 {
                     result = DownloadHandler.RemoveDownload(null, filePath);
-
+                    await WebSocketHandler.SendMessage(result);
                     string toRemove = FileHistoryHandler.RemoveFileFromFileHistory(null, filePath);
-
                     string resultRemove = FileHandler.DeleteFile(toRemove);
-
-                    WebSocketHandler.SendMessage(resultRemove);
+                    await WebSocketHandler.SendMessage(resultRemove);
                 }
                 else
                 {
@@ -187,21 +156,14 @@ namespace LittleWeebLibrary.Services
                         errortype = "warning",
                         exception = "none"
                     };
-                    WebSocketHandler.SendMessage(error.ToJson());
+                    await WebSocketHandler.SendMessage(error.ToJson());
                 }
 
 
             }
             catch (Exception e)
             {
-
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
 
                 JsonError error = new JsonError()
                 {
@@ -212,54 +174,28 @@ namespace LittleWeebLibrary.Services
                 };
 
 
-                WebSocketHandler.SendMessage(error.ToJson());
+                await WebSocketHandler.SendMessage(error.ToJson());
             }
 
         }
 
-        public void GetCurrentFileHistory()
+        public async Task GetCurrentFileHistory()
         {
-       
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "GetCurrentFileHistory called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-            WebSocketHandler.SendMessage(FileHistoryHandler.GetCurrentFileHistory().ToJson());
+            DebugHandler.TraceMessage("GetCurrentFileHistory called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            await WebSocketHandler.SendMessage(FileHistoryHandler.GetCurrentFileHistory().ToJson());
         }
 
-        public void Openfullfilepath()
+        public async Task  Openfullfilepath()
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "Openfullfilepathcalled.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
+            DebugHandler.TraceMessage("Openfullfilepath called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
             string result = DirectoryHandler.OpenDirectory(IrcSettings.fullfilepath);
-            WebSocketHandler.SendMessage(result);
+            await WebSocketHandler.SendMessage(result);
         }
 
-        private void OnDownloadUpdateEvent(object sender, DownloadUpdateEventArgs args)
+        private async void OnDownloadUpdateEvent(object sender, DownloadUpdateEventArgs args)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                DebugMessage = "OnDownloadUpdateEvent called.",
-                DebugSourceType = 2,
-                DebugType = 0
-            });
-
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                DebugMessage = args.ToString(),
-                DebugSourceType = 2,
-                DebugType = 1
-            });
+            DebugHandler.TraceMessage("OnDownloadUpdateEvent called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(args.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
 
             try
             {
@@ -268,10 +204,10 @@ namespace LittleWeebLibrary.Services
                     id = args.id,
                     animeInfo = new JsonAnimeInfo()
                     {
-                        cover_original = args.animeCoverOriginal,
-                        animeid = args.animeid,
-                        cover_small = args.animeCoverSmall,
-                        title = args.animeTitle
+                        anime_cover_original = args.animeCoverOriginal,
+                        anime_id = args.animeid,
+                        anime_cover_small = args.animeCoverSmall,
+                        anime_title = args.animeTitle
                     },
                     episodeNumber = args.episodeNumber,
                     bot = args.bot,
@@ -285,7 +221,7 @@ namespace LittleWeebLibrary.Services
                     fullfilepath= args.fullfilepath
                 };
 
-                WebSocketHandler.SendMessage(update.ToJson());
+                await WebSocketHandler.SendMessage(update.ToJson());
                 if (update.filename != null && update.fullfilepath!= null)
                 {
                     FileHistoryHandler.AddFileToFileHistory(update);
@@ -298,38 +234,112 @@ namespace LittleWeebLibrary.Services
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 2,
-                    DebugType = 4
-                });
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
             }
         }
 
         public void SetIrcSettings(IrcSettings settings)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name ,
-                DebugMessage = "SetIrcSettings called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
+            DebugHandler.TraceMessage("SetIrcSettings called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(settings.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
             IrcSettings = settings;
         }
 
         public void SetLittleWeebSettings(LittleWeebSettings settings)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "SetLittleWeebSettings called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
+            DebugHandler.TraceMessage("SetLittleWeebSettings called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(settings.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
             LittleWeebSettings = settings;
+        }
+
+        public async Task AbortDownload(JObject downloadJson)
+        {
+            DebugHandler.TraceMessage("AbortDownload called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(downloadJson.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
+            string id = downloadJson.Value<string>("id");
+            string filePath = downloadJson.Value<string>("path");
+            if (id != null)
+            {
+
+                string result = await DownloadHandler.AbortDownload(id);
+                await WebSocketHandler.SendMessage(result);
+            }
+            else if (filePath != null)
+            {
+                string result = await DownloadHandler.AbortDownload(null, filePath);
+                await WebSocketHandler.SendMessage(result);
+            }
+            else
+            {
+                DebugHandler.TraceMessage("Neither id or file path have been defined!", DebugSource.TASK, DebugType.WARNING);
+                JsonError error = new JsonError()
+                {
+                    type = "parse_download_to_abort_error",
+                    errormessage = "Neither id or file path have been defined!",
+                    errortype = "warning",
+                    exception = "none"
+                };
+                await WebSocketHandler.SendMessage(error.ToJson());
+            }
+        }
+
+        public async Task AddDownloads(JObject downloadJsonBatch)
+        {
+            DebugHandler.TraceMessage("AddDownloads called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(downloadJsonBatch.ToString(), DebugSource.TASK, DebugType.PARAMETERS);         
+
+            try
+            {
+
+                JArray listWithDownloads = downloadJsonBatch.Value<JArray>("batch");
+
+                List<JsonDownloadInfo> batch = new List<JsonDownloadInfo>();
+
+                foreach (JObject downloadJson in listWithDownloads)
+                {
+                    JsonDownloadInfo downloadInfo = new JsonDownloadInfo()
+                    {
+                        animeInfo = new JsonAnimeInfo()
+                        {
+                            anime_id = downloadJson.Value<JObject>("animeInfo").Value<string>("animeid"),
+                            anime_title = downloadJson.Value<JObject>("animeInfo").Value<string>("title"),
+                            anime_cover_original = downloadJson.Value<JObject>("animeInfo").Value<string>("cover_original"),
+                            anime_cover_small = downloadJson.Value<JObject>("animeInfo").Value<string>("cover_small")
+                        },
+                        id = downloadJson.Value<string>("id"),
+                        episodeNumber = downloadJson.Value<string>("episodeNumber"),
+                        pack = downloadJson.Value<string>("pack"),
+                        bot = downloadJson.Value<string>("bot"),
+                        fullfilepath = downloadJson.Value<string>("dir"),
+                        filename = downloadJson.Value<string>("filename"),
+                        progress = downloadJson.Value<string>("progress"),
+                        speed = downloadJson.Value<string>("speed"),
+                        status = downloadJson.Value<string>("status"),
+                        filesize = downloadJson.Value<string>("filesize")
+                    };
+
+                    LastDownloadedInfo = downloadInfo;
+                    batch.Add(downloadInfo);
+                }
+                
+                string result = DownloadHandler.AddDownloads(batch);
+
+                await WebSocketHandler.SendMessage(result);
+            }
+            catch (Exception e)
+            {
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
+
+                JsonError error = new JsonError()
+                {
+                    type = "parse_downloads_to_add_error",
+                    errormessage = "Could not parse json containing downloads to add information.",
+                    errortype = "exception",
+                    exception = e.ToString()
+                };
+
+                await WebSocketHandler.SendMessage(error.ToJson());
+            }
         }
     }
 }

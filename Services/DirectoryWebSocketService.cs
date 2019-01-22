@@ -5,59 +5,43 @@ using LittleWeebLibrary.Models;
 using LittleWeebLibrary.Settings;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Threading.Tasks;
 
 namespace LittleWeebLibrary.Services
 {
     public interface IDirectoryWebSocketService
     {
-        void CreateDirectory(JObject directoryJson);
-        void DeleteDirectory(JObject directoryJson);
-        void GetDirectories(JObject directoryJson);
-        void GetFreeSpace();
-        void GetDrives();
+        Task CreateDirectory(JObject directoryJson);
+        Task DeleteDirectory(JObject directoryJson);
+        Task GetDirectories(JObject directoryJson);
+        Task GetFreeSpace();
+        Task GetDrives();
     }
-    public class DirectoryWebSocketService : IDirectoryWebSocketService, IDebugEvent, ISettingsInterface
+    public class DirectoryWebSocketService : IDirectoryWebSocketService, ISettingsInterface
     {
-        public event EventHandler<BaseDebugArgs> OnDebugEvent;
+       
 
         private readonly IDirectoryHandler DirectoryHandler;
         private readonly IWebSocketHandler WebSocketHandler;
+        private readonly IDebugHandler DebugHandler;
 
         private LittleWeebSettings LittleWeebSettings;
         private IrcSettings IrcSettings;
 
-        public DirectoryWebSocketService(IWebSocketHandler webSocketHandler, IDirectoryHandler directoryHandler)
+        public DirectoryWebSocketService(IWebSocketHandler webSocketHandler, IDirectoryHandler directoryHandler, IDebugHandler debugHandler)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "Constructor Called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 0,
-                DebugType = 0
-            });
-
+            
+            debugHandler.TraceMessage("Constructor Called.", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
+            DebugHandler = debugHandler;
             WebSocketHandler = webSocketHandler;
             DirectoryHandler = directoryHandler;
         }
 
-        public void CreateDirectory(JObject directoryJson)
+        public async Task CreateDirectory(JObject directoryJson)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "CreateDirectory Called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
 
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = directoryJson.ToString(),
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 1
-            });
-
+            DebugHandler.TraceMessage("CreateDirectory called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(directoryJson.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
             try
             {
 
@@ -72,17 +56,11 @@ namespace LittleWeebLibrary.Services
                     filePath.Replace("\\\\", "\\");
                 }
                 string result = DirectoryHandler.CreateDirectory(filePath, "");
-                WebSocketHandler.SendMessage(result);
+                await WebSocketHandler.SendMessage(result);
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
 
                 JsonError error = new JsonError()
                 {
@@ -92,28 +70,14 @@ namespace LittleWeebLibrary.Services
                     exception = e.ToString()
                 };
 
-                WebSocketHandler.SendMessage(error.ToJson());
+                await WebSocketHandler.SendMessage(error.ToJson());
             }
         }
 
-        public void DeleteDirectory(JObject directoryJson)
+        public async Task DeleteDirectory(JObject directoryJson)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "DeleteDirectory Called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = directoryJson.ToString(),
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 1
-            });
-
+            DebugHandler.TraceMessage("DeleteDirectory called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(directoryJson.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
             try
             {
                 string filePath = directoryJson.Value<string>("path");
@@ -127,18 +91,12 @@ namespace LittleWeebLibrary.Services
                     filePath.Replace("\\\\", "\\");
                 }
                 string result = DirectoryHandler.DeleteDirectory(filePath);
-                WebSocketHandler.SendMessage(result);
+                await WebSocketHandler.SendMessage(result);
             } 
             catch (Exception e)
             {
-                 OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
-
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
+              
                 JsonError error = new JsonError()
                 {
                     type = "create_directory_error",
@@ -147,43 +105,24 @@ namespace LittleWeebLibrary.Services
                     exception = e.ToString()
                 };
 
-                WebSocketHandler.SendMessage(error.ToJson());
+                await WebSocketHandler.SendMessage(error.ToJson());
             }
         }
 
-        public void GetDrives()
+        public async Task GetDrives()
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "GetDrives Called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-
+            DebugHandler.TraceMessage("GetDrives called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
             string result = DirectoryHandler.GetDrives();
-            WebSocketHandler.SendMessage(result);
+            await WebSocketHandler.SendMessage(result);
         }
 
-        public void GetDirectories(JObject directoryJson)
+        public async Task GetDirectories(JObject directoryJson)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "GetDirectories Called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
+            DebugHandler.TraceMessage("GetDirectories called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(directoryJson.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
 
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+            try
             {
-                DebugMessage = directoryJson.ToString(),
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 1
-            });
-
-            try{
 
                 string filePath = directoryJson.Value<string>("path");
                 if (filePath.Contains("//"))
@@ -196,17 +135,11 @@ namespace LittleWeebLibrary.Services
                     filePath.Replace("\\\\", "\\");
                 }
                 string result = DirectoryHandler.GetDirectories(filePath);
-                WebSocketHandler.SendMessage(result);
+                await WebSocketHandler.SendMessage(result);
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
 
                 JsonError error = new JsonError()
                 {
@@ -216,58 +149,28 @@ namespace LittleWeebLibrary.Services
                     exception = e.ToString(),
                 };
 
-                WebSocketHandler.SendMessage(error.ToJson());
+                await WebSocketHandler.SendMessage(error.ToJson());
             }
         }
 
-        public void GetFreeSpace()
+        public async Task GetFreeSpace()
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "GetFreeSpace Called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
+            DebugHandler.TraceMessage("GetFreeSpace called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
             string result = DirectoryHandler.GetFreeSpace(IrcSettings.fullfilepath);
-            WebSocketHandler.SendMessage(result);
+            await WebSocketHandler.SendMessage(result);
         }
 
         public void SetIrcSettings(IrcSettings settings)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "SetIrcSettings Called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = settings.ToString(),
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
+            DebugHandler.TraceMessage("SetIrcSettings called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(settings.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
             IrcSettings = settings;
         }
 
         public void SetLittleWeebSettings(LittleWeebSettings settings)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = "SetLittleWeebSettings Called.",
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugMessage = settings.ToString(),
-                DebugSource = this.GetType().Name,
-                DebugSourceType = 1,
-                DebugType = 0
-            });
+            DebugHandler.TraceMessage("SetIrcSettings called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(settings.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
             LittleWeebSettings = settings;
         }
     }

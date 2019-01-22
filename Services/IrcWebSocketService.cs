@@ -6,23 +6,25 @@ using LittleWeebLibrary.Settings;
 using LittleWeebLibrary.StaticClasses;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Threading.Tasks;
 
 namespace LittleWeebLibrary.Services
 {
     public interface IIrcWebSocketService
     {
-        void Connect(JObject ircJson = null);
-        void Disconnect();
-        void EnableSendMessage();
-        void DisableSendMessage();
-        void GetCurrentIrcSettings();
-        void SendMessage(JObject ircMessageJson);
+        Task Connect(JObject ircJson = null);
+        Task Disconnect();
+        Task EnableSendMessage();
+        Task DisableSendMessage();
+        Task GetCurrentIrcSettings();
+        Task SendMessage(JObject ircMessageJson);
     }
-    public class IrcWebSocketService : IIrcWebSocketService, IDebugEvent, ISettingsInterface
+    public class IrcWebSocketService : IIrcWebSocketService, ISettingsInterface
     {
         private readonly IWebSocketHandler WebSocketHandler;
         private readonly IIrcClientHandler IrcClientHandler;
         private readonly ISettingsHandler SettingsHandler;
+        private readonly IDebugHandler DebugHandler;
 
 
         private LittleWeebSettings LittleWeebSettings;
@@ -31,23 +33,18 @@ namespace LittleWeebLibrary.Services
         private bool SendMessageToWebSocketClient;
         private bool IsIrcConnected;
 
-        public event EventHandler<BaseDebugArgs> OnDebugEvent;
+       
 
-        public IrcWebSocketService(IWebSocketHandler webSocketHandler, IIrcClientHandler ircClientHandler, ISettingsHandler settingsHandler)
+        public IrcWebSocketService(IWebSocketHandler webSocketHandler, IIrcClientHandler ircClientHandler, ISettingsHandler settingsHandler, IDebugHandler debugHandler)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "IrcWebSocketService called.",
-                DebugSourceType = 0,
-                DebugType = 0
-            });
+            debugHandler.TraceMessage("IrcWebSocketService Constructor called.", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
 
             SendMessageToWebSocketClient = false;
             IsIrcConnected = false;
             SettingsHandler = settingsHandler;
             IrcClientHandler = ircClientHandler;
             WebSocketHandler = webSocketHandler;
+            DebugHandler = debugHandler;
 
             LittleWeebSettings = SettingsHandler.GetLittleWeebSettings();
             IrcSettings = SettingsHandler.GetIrcSettings();
@@ -56,17 +53,10 @@ namespace LittleWeebLibrary.Services
             IrcClientHandler.OnIrcClientConnectionStatusEvent += OnIrcClientConnectionStatusEvent;
         }
 
-        public void Connect(JObject ircJson = null)
+        public async Task Connect(JObject ircJson = null)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "Connect called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-
-
+            DebugHandler.TraceMessage("Connect called", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            bool succes = false;
             try
             {
                 if (ircJson == null)
@@ -82,13 +72,7 @@ namespace LittleWeebLibrary.Services
                 else
                 {
 
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugSource = this.GetType().Name,
-                        DebugMessage = ircJson.ToString(),
-                        DebugSourceType = 1,
-                        DebugType = 1
-                    });
+                    DebugHandler.TraceMessage(ircJson.ToString(), DebugSource.TASK, DebugType.INFO);
 
                     string username = ircJson.Value<string>("username");
 
@@ -103,28 +87,54 @@ namespace LittleWeebLibrary.Services
                     IrcSettings.UserName = username;
                 }
 
-                IrcClientHandler.StartConnection(IrcSettings);
+                succes = IrcClientHandler.StartConnection(IrcSettings);
 
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+                if (succes)
                 {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = "Started irc connection using the following settings: " + IrcSettings.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 2
-                });
+                    JsonIrcInfo ircInfo = new JsonIrcInfo()
+                    {
+                        connected = succes,
+                        channel = IrcSettings.Channels,
+                        server = IrcSettings.ServerAddress,
+                        user = IrcSettings.UserName,
+                        fullfilepath = IrcSettings.fullfilepath
+                    };
+
+                    await WebSocketHandler.SendMessage(ircInfo.ToJson());
+                }
+                else
+                {
+                    JsonIrcInfo ircInfo = new JsonIrcInfo()
+                    {
+                        connected = succes,
+                        channel = IrcSettings.Channels,
+                        server = IrcSettings.ServerAddress,
+                        user = IrcSettings.UserName,
+                        fullfilepath = IrcSettings.fullfilepath
+                    };
+
+                    await WebSocketHandler.SendMessage(ircInfo.ToJson());
+                }
+
+                DebugHandler.TraceMessage("Started irc connection using the following settings: " + IrcSettings.ToString(), DebugSource.TASK, DebugType.INFO);
 
                 SettingsHandler.WriteIrcSettings(IrcSettings);
 
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
+
+                JsonIrcInfo ircInfo = new JsonIrcInfo()
                 {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                    connected = succes,
+                    channel = IrcSettings.Channels,
+                    server = IrcSettings.ServerAddress,
+                    user = IrcSettings.UserName,
+                    fullfilepath = IrcSettings.fullfilepath
+                };
+
+                await WebSocketHandler.SendMessage(ircInfo.ToJson());
 
                 JsonError error = new JsonError()
                 {
@@ -134,21 +144,15 @@ namespace LittleWeebLibrary.Services
                     exception = e.ToString()
                 };
 
-
-                WebSocketHandler.SendMessage(error.ToJson());
+                await WebSocketHandler.SendMessage(error.ToJson());
             }
 
+            IsIrcConnected = succes;
         }
 
-        public void GetCurrentIrcSettings()
+        public async Task GetCurrentIrcSettings()
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "GetCurrentIrcSettings called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
+            DebugHandler.TraceMessage("GetCurrentIrcSettings called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
 
             JsonIrcInfo ircInfo = new JsonIrcInfo()
             {
@@ -159,78 +163,86 @@ namespace LittleWeebLibrary.Services
                 fullfilepath= IrcSettings.fullfilepath
             };
 
-            WebSocketHandler.SendMessage(ircInfo.ToJson());
+            await WebSocketHandler.SendMessage(ircInfo.ToJson());
         }
 
-        public void EnableSendMessage()
+        public async Task EnableSendMessage()
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "EnableSendMessage called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-
+            DebugHandler.TraceMessage("EnableSendMessage called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
             SendMessageToWebSocketClient = true;
+
+            JsonSuccess jsonSuccess = new JsonSuccess()
+            {
+                message = "Succesfully enabled sending IRC messages to client."
+            };
+
+            await WebSocketHandler.SendMessage(jsonSuccess.ToJson());
         }
 
-        public void DisableSendMessage()
+        public async Task DisableSendMessage()
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "DisableSendMessage called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-            
+            DebugHandler.TraceMessage("DisableSendMessage called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
             SendMessageToWebSocketClient = false;
+
+            JsonSuccess jsonSuccess = new JsonSuccess()
+            {
+                message = "Succesfully disabled sending IRC messages to client."
+            };
+
+            await WebSocketHandler.SendMessage(jsonSuccess.ToJson());
         }
 
-        public void Disconnect()
+        public async Task Disconnect()
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "Disconnect called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-
+            DebugHandler.TraceMessage("Disconnect called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            bool succes = false;
             try
             {
-                IrcClientHandler.StopConnection();
+                succes = IrcClientHandler.StopConnection();
+                JsonIrcInfo ircInfo = new JsonIrcInfo()
+                {
+                    connected = !succes,
+                    channel = IrcSettings.Channels,
+                    server = IrcSettings.ServerAddress,
+                    user = IrcSettings.UserName,
+                    fullfilepath = IrcSettings.fullfilepath
+                };
+
+                await WebSocketHandler.SendMessage(ircInfo.ToJson());
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
+
+                succes = IrcClientHandler.StopConnection();
+                JsonIrcInfo ircInfo = new JsonIrcInfo()
                 {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                    connected = !succes,
+                    channel = IrcSettings.Channels,
+                    server = IrcSettings.ServerAddress,
+                    user = IrcSettings.UserName,
+                    fullfilepath = IrcSettings.fullfilepath
+                };
+
+                await WebSocketHandler.SendMessage(ircInfo.ToJson());
+
+                JsonError error = new JsonError()
+                {
+                    type = "irc_disconnect_error",
+                    errormessage = "Could not stop connection to irc server.",
+                    errortype = "exception",
+                    exception = e.ToString()
+                };
+
+                await WebSocketHandler.SendMessage(error.ToJson());
+
             }
         }        
 
-        public void SendMessage(JObject ircMessageJson)
+        public async Task SendMessage(JObject ircMessageJson)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "SendMessage called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = ircMessageJson.ToString(),
-                DebugSourceType = 1,
-                DebugType = 1
-            });
+            DebugHandler.TraceMessage("SendMessage called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(ircMessageJson.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
 
             try
             {
@@ -239,14 +251,7 @@ namespace LittleWeebLibrary.Services
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
-
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.ERROR);
                 JsonError error = new JsonError()
                 {
                     type = "irc_connect_error",
@@ -255,29 +260,16 @@ namespace LittleWeebLibrary.Services
                     exception = e.ToString()
                 };
 
-                WebSocketHandler.SendMessage(error.ToJson());
+                await WebSocketHandler.SendMessage(error.ToJson());
             }
 
         }
 
-        private void OnIrcClientMessageEvent(object sender, IrcClientMessageEventArgs args)
+        private async void OnIrcClientMessageEvent(object sender, IrcClientMessageEventArgs args)
         {
 
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                DebugMessage = "OnIrcClientMessageEvent called.",
-                DebugSourceType = 2,
-                DebugType = 0
-            });
-
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                DebugMessage = args.ToString(),
-                DebugSourceType = 2,
-                DebugType = 1
-            });
+            DebugHandler.TraceMessage("OnIrcClientMessageEvent called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(args.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
 
             try
             {
@@ -290,19 +282,12 @@ namespace LittleWeebLibrary.Services
                         message = args.Message
                     };
 
-                    WebSocketHandler.SendMessage(messageToSend.ToJson());
+                    await WebSocketHandler.SendMessage(messageToSend.ToJson());
                 }
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
-
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.ERROR);
                 if (SendMessageToWebSocketClient)
                 {
                     JsonError error = new JsonError()
@@ -314,28 +299,15 @@ namespace LittleWeebLibrary.Services
                     };
 
 
-                    WebSocketHandler.SendMessage(error.ToJson());
+                    await WebSocketHandler.SendMessage(error.ToJson());
                 }
             }
         }
 
-        private void OnIrcClientConnectionStatusEvent(object sender, IrcClientConnectionStatusArgs args)
+        private async void OnIrcClientConnectionStatusEvent(object sender, IrcClientConnectionStatusArgs args)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                DebugMessage = "OnIrcClientConnectionStatusEvent called.",
-                DebugSourceType = 2,
-                DebugType = 0
-            });
-
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                DebugMessage = args.ToString(),
-                DebugSourceType = 2,
-                DebugType = 1
-            });
+            DebugHandler.TraceMessage("OnIrcClientConnectionStatusEvent called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(args.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
 
 
             IsIrcConnected = args.Connected;
@@ -351,18 +323,11 @@ namespace LittleWeebLibrary.Services
                     fullfilepath= args.CurrentIrcSettings.fullfilepath
                 };
 
-                WebSocketHandler.SendMessage(update.ToJson());
+                await WebSocketHandler.SendMessage(update.ToJson());
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
-
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.ERROR);
                 JsonError error = new JsonError()
                 {
                     type = "irc_status_error",
@@ -370,33 +335,21 @@ namespace LittleWeebLibrary.Services
                     errortype = "exception",
                     exception = e.ToString()
                 };
-
-
-                WebSocketHandler.SendMessage(error.ToJson());
+                await WebSocketHandler.SendMessage(error.ToJson());
             }
         }
 
         public void SetIrcSettings(IrcSettings settings)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "SetIrcSettings called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
+            DebugHandler.TraceMessage("SetIrcSettings called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(settings.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
             IrcSettings = settings;
         }
 
         public void SetLittleWeebSettings(LittleWeebSettings settings)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "SetLittleWeebSettings called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
+            DebugHandler.TraceMessage("SetLittleWeebSettings called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(settings.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
 
             LittleWeebSettings = settings;
         }

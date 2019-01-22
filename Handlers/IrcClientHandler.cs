@@ -6,6 +6,7 @@ using SimpleIRCLib;
 using LittleWeebLibrary.Models;
 using LittleWeebLibrary.GlobalInterfaces;
 using System.IO;
+using System.Threading;
 
 namespace LittleWeebLibrary.Handlers
 {
@@ -17,25 +18,26 @@ namespace LittleWeebLibrary.Handlers
         event EventHandler<IrcClientConnectionStatusArgs> OnIrcClientConnectionStatusEvent;
         void SendMessage(string message);
         void StartDownload(JsonDownloadInfo download);
-        void StartConnection(IrcSettings settings);
-        void StopConnection();
-        void StopDownload();
+        bool StartConnection(IrcSettings settings);
+        bool StopConnection();
+        bool StopDownload();
         void Setfullfilepath(string path);
         bool IsDownloading();
         bool IsConnected();
         IrcSettings CurrentSettings();
     }
 
-    public class IrcClientHandler : IIrcClientHandler, IDebugEvent, ISettingsInterface
+    public class IrcClientHandler : IIrcClientHandler, ISettingsInterface
     {
 
 
         public event EventHandler<IrcClientMessageEventArgs> OnIrcClientMessageEvent;
         public event EventHandler<IrcClientDownloadEventArgs> OnIrcClientDownloadEvent;
         public event EventHandler<IrcClientConnectionStatusArgs> OnIrcClientConnectionStatusEvent;
-        public event EventHandler<BaseDebugArgs> OnDebugEvent;
+       
 
         private readonly ISettingsHandler SettingsHandler;
+        private readonly IDebugHandler DebugHandler;
 
         private SimpleIRC IrcClient;
         private IrcSettings IrcSettings;
@@ -43,20 +45,13 @@ namespace LittleWeebLibrary.Handlers
 
         private bool IsConnectedBool = false;
 
-        public IrcClientHandler(ISettingsHandler settingsHandler)
+        public IrcClientHandler(ISettingsHandler settingsHandler, IDebugHandler debugHandler)
         {
 
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "IrcClientHandler called.",
-                DebugSourceType = 0,
-                DebugType = 0
-            });
-
+            debugHandler.TraceMessage("Constructor Called.", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
 
             SettingsHandler = settingsHandler;
-
+            DebugHandler = debugHandler;
 
             IrcSettings = SettingsHandler.GetIrcSettings();
             LittleWeebSettings = SettingsHandler.GetLittleWeebSettings();
@@ -73,37 +68,30 @@ namespace LittleWeebLibrary.Handlers
 
         public void SetIrcSettings(IrcSettings settings)
         {
+            DebugHandler.TraceMessage("SetIrcSettings Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(settings.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
             IrcSettings = settings;
         }
 
         public void SetLittleWeebSettings(LittleWeebSettings settings)
         {
+            DebugHandler.TraceMessage("SetLittleWeebSettings Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(settings.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
             LittleWeebSettings = settings;
         }
 
         public void Setfullfilepath(string path)
         {
+            DebugHandler.TraceMessage("Setfullfilepath Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(path, DebugSource.TASK, DebugType.PARAMETERS);
             IrcClient.SetCustomDownloadDir(path);
             IrcSettings.fullfilepath= path;
         }
 
         public void SendMessage(string message)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "SendMessage called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = message,
-                DebugSourceType = 1,
-                DebugType = 1
-            });
+            DebugHandler.TraceMessage("SendMessage Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(message, DebugSource.TASK, DebugType.PARAMETERS);
 
             try
             {
@@ -113,37 +101,26 @@ namespace LittleWeebLibrary.Handlers
                     {
                         IrcClient.SendMessageToAll(message);
                     }
+                    else
+                    {
+                       DebugHandler.TraceMessage("Irc client is not connected!", DebugSource.TASK, DebugType.WARNING);
+                    }
+                }
+                else
+                {
+                    DebugHandler.TraceMessage("Irc client is not set!", DebugSource.TASK, DebugType.WARNING);
                 }
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
             }
         }
 
         public void StartDownload(JsonDownloadInfo download)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "StartDownload called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = download.ToJson(),
-                DebugSourceType = 1,
-                DebugType = 1
-            });
+            DebugHandler.TraceMessage("StartDownload Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(download.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
 
             try
             {
@@ -153,42 +130,25 @@ namespace LittleWeebLibrary.Handlers
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
             }
         }
 
-        public void StartConnection(IrcSettings settings = null)
+        public bool StartConnection(IrcSettings settings = null)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "StartConnection called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = settings.ToString(),
-                DebugSourceType = 1,
-                DebugType = 1
-            });
-
-
+            DebugHandler.TraceMessage("StartConnection Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
             try
             {
                 if (settings != null)
                 {
+
+                    DebugHandler.TraceMessage(settings.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
                     IrcSettings = settings;
                 }
                 IrcClient.SetupIrc(IrcSettings.ServerAddress, IrcSettings.UserName, IrcSettings.Channels, IrcSettings.Port, "", 3000, IrcSettings.Secure);
+
+                Thread.Sleep(500);
+
                 if (!IrcClient.StartClient())
                 {
                     OnIrcClientConnectionStatusEvent?.Invoke(this, new IrcClientConnectionStatusArgs()
@@ -197,49 +157,26 @@ namespace LittleWeebLibrary.Handlers
                         ChannelsAndUsers = null
                     });
 
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugSource = this.GetType().Name,
-                        DebugMessage = "Could not connect to IRC server.",
-                        DebugSourceType = 1,
-                        DebugType = 3
-                    });
+                    DebugHandler.TraceMessage("Irc client is could not connect!", DebugSource.TASK, DebugType.WARNING);
+                    return false;
                 }
                 else
                 {
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugSource = this.GetType().Name,
-                        DebugMessage = "Succesfully connected to irc server!",
-                        DebugSourceType = 1,
-                        DebugType = 3
-                    });
+                    DebugHandler.TraceMessage("Irc client is succesfully connected!", DebugSource.TASK, DebugType.INFO);
+                    return true;
                 }
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
-
-
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.ERROR);
+                return false;
             }
         }
 
-        public void StopConnection()
+        public bool StopConnection()
         {
 
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "StopConnection called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
+            DebugHandler.TraceMessage("StopConnection Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
 
             try
             {
@@ -250,14 +187,7 @@ namespace LittleWeebLibrary.Handlers
                         if (IrcClient.StopXDCCDownload())
                         {
 
-
-                            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                            {
-                                DebugSource = this.GetType().Name,
-                                DebugMessage = "Succesfully stopped download before stopping IRC Client.",
-                                DebugSourceType = 1,
-                                DebugType = 2
-                            });
+                            DebugHandler.TraceMessage("Succesfully stopped download before stopping IRC Client!", DebugSource.TASK, DebugType.INFO);
                         }
 
                         OnIrcClientConnectionStatusEvent?.Invoke(this, new IrcClientConnectionStatusArgs()
@@ -266,104 +196,55 @@ namespace LittleWeebLibrary.Handlers
                             CurrentIrcSettings = IrcSettings
                         });
 
-                        OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                        {
-                            DebugSource = this.GetType().Name,
-                            DebugMessage = "Succesfully stopped IRC Client.",
-                            DebugSourceType = 1,
-                            DebugType = 2
-                        });
+
+                        DebugHandler.TraceMessage("Succesfully stopped IRC Client!", DebugSource.TASK, DebugType.INFO);
+
+                        return true;
                     }
                     else
                     {
-
-                        OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                        {
-                            DebugSource = this.GetType().Name,
-                            DebugMessage = "Could not stop connection with IRC server.",
-                            DebugSourceType = 1,
-                            DebugType = 3
-                        });
+                        DebugHandler.TraceMessage("Could not stop connection with IRC server!", DebugSource.TASK, DebugType.WARNING);
+                        return false;
                     }
                 }
                 else
                 {
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugSource = this.GetType().Name,
-                        DebugMessage = "Irc client is not connected.",
-                        DebugSourceType = 1,
-                        DebugType = 3
-                    });
+                    DebugHandler.TraceMessage("Irc client is is not connected!", DebugSource.TASK, DebugType.WARNING);
+                    return true;
                 }
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.ERROR);
+                return false;
             }
 
         }
 
-        public void StopDownload()
+        public bool StopDownload()
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "StopDownload called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-
+            DebugHandler.TraceMessage("StopDownload Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
             if (!IrcClient.StopXDCCDownload())
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = "Could not stop download.",
-                    DebugSourceType = 1,
-                    DebugType = 3
-                });
+                DebugHandler.TraceMessage("Could not stop download!", DebugSource.TASK, DebugType.WARNING);
+                return false;
             }
             else
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = "Succesfully stopped Download.",
-                    DebugSourceType = 1,
-                    DebugType = 2
-                });
+                DebugHandler.TraceMessage("Succesfully stopped download!", DebugSource.TASK, DebugType.INFO);
+                return true;
             }
         }
 
         public bool IsDownloading()
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "IsDownloading called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
-
+            DebugHandler.TraceMessage("IsDownloading Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
             return IrcClient.CheckIfDownload();
         }
 
         public bool IsConnected()
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "IsConnected called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
+            DebugHandler.TraceMessage("IsConnected Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
 
             try
             {
@@ -380,14 +261,7 @@ namespace LittleWeebLibrary.Handlers
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
-
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.ERROR);
                 IsConnectedBool = false;
                 return false;
             }
@@ -395,25 +269,13 @@ namespace LittleWeebLibrary.Handlers
 
         public IrcSettings CurrentSettings()
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "CurrentSettings called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
+            DebugHandler.TraceMessage("CurrentSettings Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
             return IrcSettings;
         }
 
         private void OnMessage(object sender, IrcReceivedEventArgs args)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                DebugMessage = " OnMessage called.",
-                DebugSourceType = 2,
-                DebugType = 0
-            });
+            DebugHandler.TraceMessage("OnMessage Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
 
             IrcClientMessageEventArgs eventArgs = new IrcClientMessageEventArgs()
             {
@@ -422,45 +284,21 @@ namespace LittleWeebLibrary.Handlers
                 Message = args.Message
             };
 
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                DebugMessage = eventArgs.ToString(),
-                DebugSourceType = 2,
-                DebugType = 1
-            });
+            DebugHandler.TraceMessage(eventArgs.ToString(), DebugSource.TASK, DebugType.ENTRY_EXIT);
 
             OnIrcClientMessageEvent?.Invoke(this, eventArgs);
         }
 
         private void OnMessageDebug(object sender, IrcDebugMessageEventArgs args)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                DebugMessage = " OnMessageDebug called.",
-                DebugSourceType = 2,
-                DebugType = 0
-            });
-
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                DebugMessage =  args.Type + " || " + args.Message,
-                DebugSourceType = 4,
-                DebugType = 4
-            });
+            DebugHandler.TraceMessage("OnMessageDebug Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(args.Type + " || " + args.Message, DebugSource.TASK, DebugType.INFO);
         }
 
         private void OnUserListUpdate(object sender, IrcUserListReceivedEventArgs args)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                DebugMessage = " OnUserListUpdate called.",
-                DebugSourceType = 2,
-                DebugType = 0
-            });
+
+            DebugHandler.TraceMessage("OnUserListUpdate Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
 
             try
             {
@@ -474,14 +312,8 @@ namespace LittleWeebLibrary.Handlers
                         CurrentIrcSettings = IrcSettings
                     };
 
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                        DebugMessage = eventArgs.ToString(),
-                        DebugSourceType = 2,
-                        DebugType = 1
-                    });
-
+                    DebugHandler.TraceMessage(eventArgs.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
+                   
                     if (!IsConnectedBool)
                     {
                         OnIrcClientConnectionStatusEvent?.Invoke(this, eventArgs);
@@ -491,26 +323,14 @@ namespace LittleWeebLibrary.Handlers
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
             }
            
         }
 
         private void OnDownloadUpdate(object sender, DCCEventArgs args)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                DebugMessage = "OnDownloadUpdate called.",
-                DebugSourceType = 2,
-                DebugType = 0
-            });
+            DebugHandler.TraceMessage("OnDownloadUpdate Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
 
             IrcClientDownloadEventArgs eventArgs = new IrcClientDownloadEventArgs()
             {
@@ -522,34 +342,16 @@ namespace LittleWeebLibrary.Handlers
                 DownloadStatus = args.Status
             };
 
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                DebugMessage = eventArgs.ToString(),
-                DebugSourceType = 2,
-                DebugType = 1
-            });
+            DebugHandler.TraceMessage(eventArgs.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
 
             OnIrcClientDownloadEvent?.Invoke(this, eventArgs);
         }
 
         private void OnDownloadUpdateDebug(object sender, DCCDebugMessageArgs args)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                DebugMessage = " OnDownloadUpdateDebug called.",
-                DebugSourceType = 2,
-                DebugType = 0
-            });
 
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name + " via " + sender.GetType().Name,
-                DebugMessage = args.Type + " || " + args.Message,
-                DebugSourceType = 4,
-                DebugType = 4
-            });
+            DebugHandler.TraceMessage("OnDownloadUpdateDebug Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(args.Type + " || " + args.Message, DebugSource.TASK, DebugType.INFO);         
         }
     }
 }

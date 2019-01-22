@@ -16,22 +16,20 @@ namespace LittleWeebLibrary.Handlers
         void WriteLittleWeebSettings(LittleWeebSettings littleWeebSettings);
     }
 
-    public class SettingsHandler : ISettingsHandler, IDebugEvent
+    public class SettingsHandler : ISettingsHandler
     {
-        public event EventHandler<BaseDebugArgs> OnDebugEvent;
+       
 
-        private string BasePath;
-        private string SettingsPath;
+        private readonly IDebugHandler DebugHandler;
 
-        public SettingsHandler()
+        private readonly string BasePath;
+        private readonly string SettingsPath;
+
+        public SettingsHandler(IDebugHandler debugHandler)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "Constructor called.",
-                DebugSourceType = 0,
-                DebugType = 0
-            });
+            debugHandler.TraceMessage("Constructor Called.", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
+
+            DebugHandler = debugHandler;
 
             string littleWeebSettingsName = "LittleWeebSettings.json";
             string ircSettingsName = "IrcSettings.json";
@@ -39,7 +37,7 @@ namespace LittleWeebLibrary.Handlers
 #if __ANDROID__
             BasePath = Path.Combine(Android.OS.Environment.ExternalStorageDirectory.Path, "LittleWeeb");
 #else
-            BasePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LittleWeeb");
+            BasePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "LittleWeeb");
 #endif
 
             if (!Directory.Exists(BasePath))
@@ -62,33 +60,22 @@ namespace LittleWeebLibrary.Handlers
                     DebugLevel = new List<int>() { 0, 1, 2, 3, 4, 5 },
                     DebugType = new List<int>() { 0, 1, 2, 3, 4},
                     RandomUsernameLength = 6,
-                    MaxDebugLogSize = 2000,
-                    Version = "v0.4.0"
+                    MaxDebugLogSize = 2000
                 });
             }
             if (!File.Exists(Path.Combine(SettingsPath, ircSettingsName)))
             {
                 WriteIrcSettings(new IrcSettings());
             }
+
+
         }
 
         public void WriteIrcSettings(IrcSettings ircSettings)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "WriteIrcSettings called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
 
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = ircSettings.ToString(),
-                DebugSourceType = 1,
-                DebugType = 1
-            });
+            DebugHandler.TraceMessage("WriteIrcSettings Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(ircSettings.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
 
             try
             {
@@ -118,35 +105,17 @@ namespace LittleWeebLibrary.Handlers
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
             }
 
         }
 
         public void WriteLittleWeebSettings(LittleWeebSettings littleWeebSettings)
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "WriteLittleWeebSettings called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
 
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = littleWeebSettings.ToString(),
-                DebugSourceType = 1,
-                DebugType = 1
-            });
-
+            DebugHandler.TraceMessage("WriteLittleWeebSettings Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage(littleWeebSettings.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
 
 
             try
@@ -177,25 +146,14 @@ namespace LittleWeebLibrary.Handlers
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
             }
         }
 
         public LittleWeebSettings GetLittleWeebSettings()
         {
-            OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-            {
-                DebugSource = this.GetType().Name,
-                DebugMessage = "GetLittleWeebSettings called.",
-                DebugSourceType = 1,
-                DebugType = 0
-            });
+
+            DebugHandler.TraceMessage("GetLittleWeebSettings Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
             try
             {
                 string settingsName = "LittleWeebSettings.json";
@@ -215,36 +173,19 @@ namespace LittleWeebLibrary.Handlers
 
                     }
 
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugSource = this.GetType().Name,
-                        DebugMessage = "Returning read littleweebsettings: " + settingsJson,
-                        DebugSourceType = 1,
-                        DebugType = 2
-                    });
+                    DebugHandler.TraceMessage("Returning read littleweebsettings: " + settingsJson, DebugSource.TASK, DebugType.INFO);
                     return JsonConvert.DeserializeObject<LittleWeebSettings>(settingsJson);
                 }
                 else
                 {
-                    OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                    {
-                        DebugSource = this.GetType().Name,
-                        DebugMessage = "Returning new littleweebsettings.",
-                        DebugSourceType = 1,
-                        DebugType = 2
-                    });
+                    DebugHandler.TraceMessage("Returning new littleweebsettings.", DebugSource.TASK, DebugType.INFO);
                     return new LittleWeebSettings();
                 }
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                DebugHandler.TraceMessage("Returning new littleweebsettings.", DebugSource.TASK, DebugType.INFO);
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
 
                 return new LittleWeebSettings();
             }
@@ -253,6 +194,7 @@ namespace LittleWeebLibrary.Handlers
 
         public IrcSettings GetIrcSettings()
         {
+            DebugHandler.TraceMessage("GetIrcSettings called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
             IrcSettings toReturn = new IrcSettings();
 
             try
@@ -274,17 +216,13 @@ namespace LittleWeebLibrary.Handlers
                     }
 
                     toReturn = JsonConvert.DeserializeObject<IrcSettings>(settingsJson);
+
+                    DebugHandler.TraceMessage("Returning read ircsettings: " + toReturn, DebugSource.TASK, DebugType.INFO);
                 }
             }
             catch (Exception e)
             {
-                OnDebugEvent?.Invoke(this, new BaseDebugArgs()
-                {
-                    DebugSource = this.GetType().Name,
-                    DebugMessage = e.ToString(),
-                    DebugSourceType = 1,
-                    DebugType = 4
-                });
+                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
             }
 
             return toReturn;
