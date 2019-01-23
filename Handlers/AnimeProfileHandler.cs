@@ -51,8 +51,33 @@ namespace LittleWeebLibrary.Handlers
 
             int seasonNumber = result.anime_episodes[0]["attributes"].Value<int>("seasonNumber");
 
+            int tempSeasonNumber = seasonNumber;
 
-            DebugHandler.TraceMessage("ANIME INFO: " + id + ", ANIME SEASON: " + seasonNumber, DebugSource.TASK, DebugType.INFO);
+            int previousEpisodeEnd = 0;
+
+            JArray tempRelated = result.anime_relations;
+
+            while(tempSeasonNumber > 1)
+            {
+                foreach (JObject relatedAnime in tempRelated)
+                {
+                    if (relatedAnime.Value<string>("role") == "prequel") {
+
+                        previousEpisodeEnd += relatedAnime["attributes"].Value<int>("episodeCount");
+
+                        if ((tempSeasonNumber - 1 ) > 1)
+                        {
+                            tempRelated = await KitsuHandler.GetRelations(relatedAnime.Value<string>("id"));
+                        }
+                        break;
+                    }
+                }
+                tempSeasonNumber--;              
+            }
+
+
+
+            DebugHandler.TraceMessage("ANIME INFO: " + id + ", ANIME SEASON: " + seasonNumber + ", WITH START EPISODE AT: " + previousEpisodeEnd, DebugSource.TASK, DebugType.INFO);
             DebugHandler.TraceMessage(result.ToJson(), DebugSource.TASK, DebugType.INFO);
 
             List<string> animeTitles = new List<string>();
@@ -70,14 +95,18 @@ namespace LittleWeebLibrary.Handlers
                 }
             }
 
-            foreach (string title in result.anime_info["data"][0]["attributes"].Value<JArray>("abbreviatedTitles"))
+            if (result.anime_info["data"][0]["attributes"].Value<JArray>("abbreviatedTitles") != null)
             {
-                if (!animeTitles.Contains(title))
+                foreach (string title in result.anime_info["data"][0]["attributes"].Value<JArray>("abbreviatedTitles"))
                 {
-                    DebugHandler.TraceMessage("ADDED (NON-LOCALIZED) TITLE: " + title, DebugSource.TASK, DebugType.INFO);
-                    animeTitles.Add(title);
+                    if (!animeTitles.Contains(title))
+                    {
+                        DebugHandler.TraceMessage("ADDED (NON-LOCALIZED) TITLE: " + title, DebugSource.TASK, DebugType.INFO);
+                        animeTitles.Add(title);
+                    }
                 }
             }
+           
 
 
             DebugHandler.TraceMessage("PARSED ANIME TITLES: " + id, DebugSource.TASK, DebugType.INFO);
@@ -95,8 +124,7 @@ namespace LittleWeebLibrary.Handlers
                 {
                     searchQuery += " " + parsed["SubAnimeTitle"];
                 }
-
-
+                
                 JObject nibl_result = await NiblHandler.SearchNibl(searchQuery);
 
                 DebugHandler.TraceMessage("FINISHED SEARCHING NIBL FOR: " + title, DebugSource.TASK, DebugType.INFO);
@@ -112,6 +140,8 @@ namespace LittleWeebLibrary.Handlers
                             JArray newarray = nibl_result.Value<JArray>("packs");
                             old.Merge(newarray);
                             niblResults["packs"] = old;
+
+                            DebugHandler.TraceMessage("Merged old with new results!", DebugSource.TASK, DebugType.INFO);
                         }
                         else
                         {
@@ -131,57 +161,148 @@ namespace LittleWeebLibrary.Handlers
             }
 
             Dictionary<string, Dictionary<int, List<JObject>>> resolutions = new Dictionary<string, Dictionary<int, List<JObject>>>()
-                {
-                    { "UNKNOWN", new Dictionary<int, List<JObject>>()},
-                    { "480P", new Dictionary<int, List<JObject>>()},
-                    { "720P", new Dictionary<int, List<JObject>>()},
-                    { "1080P", new Dictionary<int, List<JObject>>()}
-                };
+            {
+                { "UNKNOWN", new Dictionary<int, List<JObject>>()},
+                { "480P", new Dictionary<int, List<JObject>>()},
+                { "720P", new Dictionary<int, List<JObject>>()},
+                { "1080P", new Dictionary<int, List<JObject>>()}
+            };
 
+
+            DebugHandler.TraceMessage("PARSING RESOLUTION PER FILE.", DebugSource.TASK, DebugType.INFO);
             foreach (JObject pack in niblResults.Value<JArray>("packs"))
             {
-                string resolution = "UNKONWN";
+                string resolution = "UNKNOWN";
 
-                if (pack.ContainsKey("Video_Resolution"))
+                bool correctSeason = false;
+                int seasonFromFile = -1;
+                if (pack.ContainsKey("Season"))
                 {
-                    resolution = pack.Value<string>("Video_Resolution");
-                }
 
-                if (!resolutions.ContainsKey(resolution))
-                {
-                    if (pack.ContainsKey("Episode"))
+                    if (int.TryParse(pack.Value<string>("Season"), out seasonFromFile))
                     {
-                        resolutions.Add(resolution, new Dictionary<int, List<JObject>>() { { int.Parse(pack.Value<string>("Episode")), new List<JObject>() { pack } } });
-                    }
-                    else
-                    {
-                        resolutions.Add(resolution, new Dictionary<int, List<JObject>>() { { -1, new List<JObject>() { pack } } });
-                    }
-                }
-                else
-                {
-                    if (pack.ContainsKey("Episode"))
-                    {
-                        if (resolutions[resolution].ContainsKey(int.Parse(pack.Value<string>("Episode"))))
+                        if (seasonFromFile == seasonNumber)
                         {
+                            DebugHandler.TraceMessage("FILE BELONGS TO SEASON: " + seasonNumber, DebugSource.TASK, DebugType.INFO);
+                            correctSeason = true;
+                        }
+                    }
+                }
 
-                            resolutions[resolution][int.Parse(pack.Value<string>("Episode"))].Add(pack);
+                if (correctSeason)
+                {
+                    if (pack.ContainsKey("Video_Resolution"))
+                    {
+                        resolution = pack.Value<string>("Video_Resolution");
+                    }
+
+                    int episodeValue = -1;
+                    if (!resolutions.ContainsKey(resolution))
+                    {
+                        if (pack.ContainsKey("Episode"))
+                        {
+                            if (int.TryParse(pack.Value<string>("Episode"), out episodeValue))
+                            {
+                                resolutions.Add(resolution, new Dictionary<int, List<JObject>>() { { episodeValue, new List<JObject>() { pack } } });
+                            }
+                            else
+                            {
+                                resolutions.Add(resolution, new Dictionary<int, List<JObject>>() { { episodeValue, new List<JObject>() { pack } } });
+                            }
                         }
                         else
                         {
-                            resolutions[resolution].Add(int.Parse(pack.Value<string>("Episode")), new List<JObject>() { pack });
+                            resolutions.Add(resolution, new Dictionary<int, List<JObject>>() { { episodeValue, new List<JObject>() { pack } } });
                         }
                     }
                     else
                     {
-                        if (resolutions[resolution].ContainsKey(-1))
+                        if (pack.ContainsKey("Episode"))
                         {
-                            resolutions[resolution][-1].Add(pack);
+                            if (int.TryParse(pack.Value<string>("Episode"), out episodeValue))
+                            {
+                                if (resolutions[resolution].ContainsKey(episodeValue))
+                                {
+                                    resolutions[resolution][episodeValue].Add(pack);
+                                }
+                                else
+                                {
+                                    resolutions[resolution].Add(episodeValue, new List<JObject>() { pack });
+                                }
+                            }
+                            else
+                            {
+                                if (resolutions[resolution].ContainsKey(episodeValue))
+                                {
+                                    resolutions[resolution][episodeValue].Add(pack);
+                                }
+                                else
+                                {
+                                    resolutions[resolution].Add(episodeValue, new List<JObject>() { pack });
+                                }
+                            }
                         }
                         else
                         {
-                            resolutions[resolution].Add(-1, new List<JObject>() { pack });
+                            if (resolutions[resolution].ContainsKey(episodeValue))
+                            {
+                                resolutions[resolution][episodeValue].Add(pack);
+                            }
+                            else
+                            {
+                                resolutions[resolution].Add(episodeValue, new List<JObject>() { pack });
+                            }
                         }
+                    }
+                }
+                else // not correct season
+                {
+                    DebugHandler.TraceMessage("FILE DOES NOT BELONG TO SEASON: " + seasonNumber, DebugSource.TASK, DebugType.INFO);
+                    if (previousEpisodeEnd > 0)
+                    {
+                        if (pack.ContainsKey("Video_Resolution"))
+                        {
+                            resolution = pack.Value<string>("Video_Resolution");
+                        }
+
+                        int episodeValue = -1;
+                        if (!resolutions.ContainsKey(resolution))
+                        {
+                            if (pack.ContainsKey("Episode"))
+                            {
+                                if (int.TryParse(pack.Value<string>("Episode"), out episodeValue))
+                                {
+                                    if (episodeValue > previousEpisodeEnd)
+                                    {
+
+                                        DebugHandler.TraceMessage("EPISODE NUMBER IS LARGER THAN REPORTED AMOUNT OF EPISODES FOR PREVIOUS SEASONS: " + episodeValue + " > " + previousEpisodeEnd, DebugSource.TASK, DebugType.INFO);
+
+                                        resolutions.Add(resolution, new Dictionary<int, List<JObject>>() { { (episodeValue - previousEpisodeEnd), new List<JObject>() { pack } } });
+                                    }
+                                }                           
+                            }
+                        }
+                        else
+                        {
+                            if (pack.ContainsKey("Episode"))
+                            {
+                                if (int.TryParse(pack.Value<string>("Episode"), out episodeValue))
+                                {
+                                    if (episodeValue > previousEpisodeEnd)
+                                    {
+                                        DebugHandler.TraceMessage("EPISODE NUMBER IS LARGER THAN REPORTED AMOUNT OF EPISODES FOR PREVIOUS SEASONS: " + episodeValue + " > " + previousEpisodeEnd, DebugSource.TASK, DebugType.INFO);
+                                        if (resolutions[resolution].ContainsKey(episodeValue - previousEpisodeEnd))
+                                        {
+                                            resolutions[resolution][(episodeValue - previousEpisodeEnd)].Add(pack);
+                                        }
+                                        else
+                                        {
+                                            resolutions[resolution].Add((episodeValue - previousEpisodeEnd), new List<JObject>() { pack });
+                                        }
+                                    }
+                                }                           
+                            }                      
+                        }              
                     }
                 }
             }

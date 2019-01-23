@@ -60,7 +60,7 @@ namespace LittleWeebLibrary.Handlers
 
                 JObject searchresultjobject = JObject.Parse(searchresult);
 
-                totalPages = (int)(searchresultjobject["meta"].Value<int>("count") / 20 - 0.5);
+                totalPages = (int)Math.Ceiling(((double)((searchresultjobject["meta"].Value<int>("count")) / (double)20) + 0.5));
 
                 if (pages == -1)
                 {
@@ -113,7 +113,7 @@ namespace LittleWeebLibrary.Handlers
 
             for (int i = 0; i < pages; i++)
             {
-                string episodes = await Get("episodes?filter[mediaType]=Anime&filter[media_id]=" + animeId + "&page[limit]=20&page[offset]=" + ((page + i) * 20).ToString());
+                string episodes = await Get("episodes?filter[mediaType]=Anime&filter[media_id]=" + animeId + "&page[limit]=20&page[offset]=" + ((page + i) * 20).ToString() + "&sort=number");
 
                 if (episodes.Contains("failed:"))
                 {
@@ -122,7 +122,7 @@ namespace LittleWeebLibrary.Handlers
 
                 JObject searchresultjobject = JObject.Parse(episodes);
 
-                totalPages = (int)(searchresultjobject["meta"].Value<int>("count") / 20 - 0.5);
+                totalPages = (int)Math.Ceiling(((double)((searchresultjobject["meta"].Value<int>("count")) / (double)20) + 0.5));
 
                 if (pages == -1)
                 {
@@ -176,7 +176,24 @@ namespace LittleWeebLibrary.Handlers
             }
             else
             {
-                return JObject.Parse(relations).Value<JArray>("included");
+                JObject result = JObject.Parse(relations);
+                JArray data = result.Value<JArray>("data");
+                JArray included = result.Value<JArray>("included");
+
+                int i = 0;
+                foreach (JObject roles in data)
+                {
+                    JObject anime = included[i].Value<JObject>();
+
+                    anime.Add(new JProperty("role", roles["attributes"].Value<string>("role")));
+
+                    included[i] = anime;
+
+                    i++;
+
+                }
+
+                return included;
             }
 
         }
