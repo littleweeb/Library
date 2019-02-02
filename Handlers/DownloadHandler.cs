@@ -3,6 +3,7 @@ using LittleWeebLibrary.GlobalInterfaces;
 using LittleWeebLibrary.Models;
 using LittleWeebLibrary.Settings;
 using LittleWeebLibrary.StaticClasses;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -13,12 +14,12 @@ namespace LittleWeebLibrary.Handlers
     public interface IDownloadHandler
     {
         event EventHandler<DownloadUpdateEventArgs> OnDownloadUpdateEvent;
-        string AddDownload(JsonDownloadInfo download);
-        string AddDownloads(List<JsonDownloadInfo> download);
-        Task<string> AbortDownload(string id = null, string filePath = null);
-        string RemoveDownload(string id = null, string filePath = null);
-        string GetCurrentlyDownloading();
-        string StopQueue();
+        Task<JObject> AddDownload(JsonDownloadInfo download);
+        Task<JObject> AddDownloads(List<JsonDownloadInfo> download);
+        Task<JObject> AbortDownload(string id = null);
+        Task<JObject> RemoveDownload(string id = null, string filePath = null);
+        JObject GetCurrentlyDownloading();
+        JObject StopQueue();
     }
 
     public class DownloadHandler : IDownloadHandler, ISettingsInterface
@@ -27,6 +28,8 @@ namespace LittleWeebLibrary.Handlers
        
 
         private readonly IIrcClientHandler IrcClientHandler;
+        private readonly IFileHistoryHandler FileHistoryHandler;
+        private readonly IFileHandler FileHandler;
         private readonly IDebugHandler DebugHandler;
 
         private bool Stop;
@@ -35,10 +38,12 @@ namespace LittleWeebLibrary.Handlers
         private IrcSettings IrcSettings;
         private List<JsonDownloadInfo> DownloadQueue;
 
-        public DownloadHandler(IIrcClientHandler ircClientHandler, IDebugHandler debugHandler)
+        public DownloadHandler(IIrcClientHandler ircClientHandler, IFileHistoryHandler fileHistoryHandler, IFileHandler fileHandler, IDebugHandler debugHandler)
         {
             debugHandler.TraceMessage("DownloadHandler", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
             DebugHandler = debugHandler;
+            FileHistoryHandler = fileHistoryHandler;
+            FileHandler = fileHandler;
 
             try
             {
@@ -59,151 +64,165 @@ namespace LittleWeebLibrary.Handlers
 
         }
 
-        public string AddDownload(JsonDownloadInfo download)
+        public async Task<JObject> AddDownload(JsonDownloadInfo download)
         {
             DebugHandler.TraceMessage("AddDownload Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
             DebugHandler.TraceMessage(download.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
-            try
+
+            JObject toReturn = new JObject();
+
+            await Task.Run(() =>
             {
-                if (download.filesize.Contains("."))
+                try
                 {
-                    download.filesize = ((int)(double.Parse(download.filesize, System.Globalization.CultureInfo.InvariantCulture) * 1024)).ToString();
-                }
-                if (UtilityMethods.GetFreeSpace(IrcSettings.fullfilepath) > (int.Parse(download.filesize) * 1024 * 1024))
-                {
-
-                    download.downloadIndex = DownloadQueue.Count - 1;
-
-                    if (!DownloadQueue.Contains(download) || CurrentlyDownloading != download)
+                    if (UtilityMethods.GetFreeSpaceKbits(IrcSettings.fullfilepath) > long.Parse(download.filesize)) //kbits -> bytes
                     {
+                        download.id = IdGenerator(download.anime_id, download.bot, download.pack, download.episodeNumber, download.season).ToString();
+                        download.downloadDirectory = Path.Combine(IrcSettings.fullfilepath, download.anime_name);
 
-
-                        DownloadQueue.Add(download);
-                        DebugHandler.TraceMessage("Added download to queue: " + download.ToString(), DebugSource.TASK, DebugType.INFO);
-
-                        JsonSuccess succes = new JsonSuccess()
+                        if (!DownloadQueue.Exists(x => x.id == download.id) || CurrentlyDownloading.id != download.id)
                         {
-                            message = "Succesfully added download to download queue."
-                        };
+                            download.downloadIndex = DownloadQueue.Count - 1;
+                            DownloadQueue.Add(download);
+                            DebugHandler.TraceMessage("Added download to queue: " + download.ToString(), DebugSource.TASK, DebugType.INFO);
 
-                        return succes.ToJson();
+                            JsonDownloadQueue current = new JsonDownloadQueue()
+                            {
+                                downloadQueue = DownloadQueue
+                            };
+
+                            toReturn = current.ToJObject();
+                        }
+                        else
+                        {
+
+                            DebugHandler.TraceMessage("Could not add download: " + download.ToString() + ", already exist in queue or is already being downloaded ", DebugSource.TASK, DebugType.WARNING);
+                            JsonError error = new JsonError()
+                            {
+                                type = "file_already_being_downloaded_error",
+                                errormessage = "Could not add download: " + download.ToString() + ", already exist in queue or is already being downloaded ",
+                                errortype = "warning",
+                                exception = "none"
+                            };
+                            toReturn = error.ToJObject();
+                        }
+
                     }
                     else
                     {
+                        DebugHandler.TraceMessage("Could not add download with filesize: " + download.filesize + " due to insufficient space required: " + UtilityMethods.GetFreeSpaceKbits(IrcSettings.fullfilepath).ToString(), DebugSource.TASK, DebugType.WARNING);
 
-
-                        DebugHandler.TraceMessage("Could not add download: " + download.ToString() + ", already exist in queue or is already being downloaded ", DebugSource.TASK, DebugType.WARNING);
                         JsonError error = new JsonError()
                         {
-                            type = "file_already_being_downloaded_error",
-                            errormessage = "Could not add download: " + download.ToString() + ", already exist in queue or is already being downloaded ",
-                            errortype = "warning",
-                            exception = "none"
+                            type = "unsufficient_space_error",
+                            errormessage = "Could not add download with filesize: " + download.filesize + " due to insufficient space required: " + UtilityMethods.GetFreeSpaceKbits(IrcSettings.fullfilepath).ToString().ToString(),
+                            errortype = "warning"
                         };
-                        return error.ToJson();
+                        toReturn = error.ToJObject();
                     }
 
                 }
-                else
+                catch (Exception e)
                 {
-                    DebugHandler.TraceMessage("Could not add download with filesize: " + download.filesize + " due to insufficient space required: " + (UtilityMethods.GetFreeSpace(IrcSettings.fullfilepath) / 1024 / 1024).ToString(), DebugSource.TASK, DebugType.WARNING);
+                    DebugHandler.TraceMessage("Could not add download with filesize: " + e.ToString(), DebugSource.TASK, DebugType.ERROR);
 
                     JsonError error = new JsonError()
                     {
-                        type = "unsufficient_space_error",
-                        errormessage = "Could not add download with filesize: " + download.filesize + " due to insufficient space required: " + (UtilityMethods.GetFreeSpace(IrcSettings.fullfilepath) / 1024 / 1024).ToString(),
-                        errortype = "warning"
+                        type = "add_download_error",
+                        errormessage = "Could not add download to queue.",
+                        errortype = "exception",
+                        exception = e.ToString()
                     };
-                    return error.ToJson();
+                    toReturn = error.ToJObject();
                 }
+            });
 
-            }
-            catch (Exception e)
-            {
-                DebugHandler.TraceMessage("Could not add download with filesize: " + e.ToString(), DebugSource.TASK, DebugType.ERROR);
-
-                JsonError error = new JsonError()
-                {
-                    type = "add_download_error",
-                    errormessage = "Could not add download to queue.",
-                    errortype = "exception",
-                    exception = e.ToString()
-                };
-                return error.ToJson();
-            }
+            return toReturn;
         }
 
-        public string RemoveDownload(string id = null, string filepath = null)
+        public async Task<JObject> RemoveDownload(string id = null, string filepath = null)
         {
 
             DebugHandler.TraceMessage("Remove Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
             DebugHandler.TraceMessage("ID: " + id, DebugSource.TASK, DebugType.PARAMETERS);
             DebugHandler.TraceMessage("FILEPATH: " + filepath, DebugSource.TASK, DebugType.PARAMETERS);
 
-            try
+            JObject toReturn = new JObject();
+
+            await Task.Run(async () =>
             {
 
-                int index = 0;
-
-                foreach (JsonDownloadInfo queuedDownload in DownloadQueue)
+                try
                 {
-                    if (id != null)
-                    {
-                        if (queuedDownload.id == id)
-                        {
-                            DebugHandler.TraceMessage("Removed download at index: " + index.ToString() + " using id: " + id, DebugSource.TASK, DebugType.INFO);
-                            DownloadQueue.RemoveAt(index);
-                            break;
-                        }
-                    }
-                    else if (filepath != null)
-                    {
-                        if (Path.Combine(queuedDownload.fullfilepath, queuedDownload.filename) == filepath)
-                        {
-                            DebugHandler.TraceMessage("Removed download at index: " + index.ToString() + " using filepath: " + filepath, DebugSource.TASK, DebugType.INFO);
-                            DownloadQueue.RemoveAt(index);
-                            break;
-                        }
-                    }
-                    else
-                    {
 
-                        DebugHandler.TraceMessage("Could not remove download from queue, neither id or filepath is defined.", DebugSource.TASK, DebugType.WARNING);
-                        JsonError error = new JsonError()
+                    int index = 0;
+                    foreach (JsonDownloadInfo queuedDownload in DownloadQueue)
+                    {
+                        if (id != null)
                         {
-                            type = "remove_download_error",
-                            errormessage = "Could not remove download from queue, neither id or filepath is defined.",
-                            errortype = "warning"
-                        };
-                        return error.ToJson();
+                            if (queuedDownload.id == id)
+                            {
+                                DebugHandler.TraceMessage("Removed download at index: " + index.ToString() + " using id: " + id, DebugSource.TASK, DebugType.INFO);
+                                DownloadQueue.RemoveAt(index);
+                                break;
+                            }
+                        }
+                        else if (filepath != null)
+                        {
+                            if (Path.Combine(queuedDownload.fullfilepath, queuedDownload.filename) == filepath)
+                            {
+                                DebugHandler.TraceMessage("Removed download at index: " + index.ToString() + " using filepath: " + filepath, DebugSource.TASK, DebugType.INFO);
+                                DownloadQueue.RemoveAt(index);
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            DebugHandler.TraceMessage("Could not remove download from queue, neither id or filepath is defined.", DebugSource.TASK, DebugType.WARNING);
+                            JsonError error = new JsonError()
+                            {
+                                type = "remove_download_error",
+                                errormessage = "Could not remove download from queue, neither id or filepath is defined.",
+                                errortype = "warning"
+                            };
+                            toReturn = error.ToJObject();
+                        }
+                        index++;
                     }
-                    index++;
+
+                    if (CurrentlyDownloading.id != string.Empty)
+                    {
+                        await AbortDownload(id);
+                    }
+
+                    JsonDownloadQueue current = new JsonDownloadQueue()
+                    {
+                        downloadQueue = DownloadQueue
+                    };
+
+                    toReturn = current.ToJObject();
                 }
-
-                JsonSuccess succes = new JsonSuccess()
+                catch (Exception e)
                 {
-                    message = "Succesfully removed download from download queue by download json."
-                };
 
-                return succes.ToJson();
-            }
-            catch (Exception e)
-            {
+                    DebugHandler.TraceMessage("Could not remove download from queue by download json: " + e.ToString(), DebugSource.TASK, DebugType.ERROR);
 
-                DebugHandler.TraceMessage("Could not remove download from queue by download json: " + e.ToString(), DebugSource.TASK, DebugType.ERROR);
+                    JsonError error = new JsonError()
+                    {
+                        type = "remove_download_error",
+                        errormessage = "Could not remove download from queue by download json.",
+                        errortype = "exception"
+                    };
+                    toReturn = error.ToJObject();
+                }
+            });
 
-                JsonError error = new JsonError()
-                {
-                    type = "remove_download_error",
-                    errormessage = "Could not remove download from queue by download json.",
-                    errortype = "exception"
-                };
-                return error.ToJson();
-            }
+            return toReturn;
+
         }
 
 
-        public string StopQueue()
+        public JObject StopQueue()
         {
 
             DebugHandler.TraceMessage("StopQueue Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
@@ -215,65 +234,47 @@ namespace LittleWeebLibrary.Handlers
                 message = "Succesfully told queue to stop running."
             };
 
-            return succes.ToJson();
+            return succes.ToJObject();
         }
 
-        public string GetCurrentlyDownloading()
+        public JObject GetCurrentlyDownloading()
         {
             DebugHandler.TraceMessage("GetCurrentlyDownloading Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
-            return CurrentlyDownloading.ToJson();
+            return CurrentlyDownloading.ToJObject();
         }
 
-        private void OnIrcClientDownloadEvent(object sender, IrcClientDownloadEventArgs args)
+        private async void OnIrcClientDownloadEvent(object sender, IrcClientDownloadEventArgs args)
         {
 
             DebugHandler.TraceMessage("OnIrcClientDownloadEvent Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
             DebugHandler.TraceMessage(args.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
 
-
             if (CurrentlyDownloading != null)
             {
-
                 if (args.DownloadStatus == "PARSING" || args.DownloadStatus == "WAITING")
                 {
+
+                    CurrentlyDownloading.progress = args.DownloadProgress.ToString();
+                    CurrentlyDownloading.speed = args.DownloadSpeed.ToString();
+                    CurrentlyDownloading.status = args.DownloadStatus;
+                    CurrentlyDownloading.filename = args.FileName;
+
                     OnDownloadUpdateEvent?.Invoke(this, new DownloadUpdateEventArgs()
                     {
-                        id = CurrentlyDownloading.id,
-                        animeid = CurrentlyDownloading.animeInfo.anime_id,
-                        animeTitle = CurrentlyDownloading.animeInfo.anime_title,
-                        animeCoverSmall = CurrentlyDownloading.animeInfo.anime_cover_small,
-                        animeCoverOriginal = CurrentlyDownloading.animeInfo.anime_cover_original,
-                        episodeNumber = CurrentlyDownloading.episodeNumber,
-                        bot = CurrentlyDownloading.bot,
-                        pack = CurrentlyDownloading.pack,
-                        progress = args.DownloadProgress.ToString(),
-                        speed = args.DownloadSpeed.ToString(),
-                        status = args.DownloadStatus,
-                        filename = CurrentlyDownloading.filename,
-                        filesize = CurrentlyDownloading.filesize,
-                        fullfilepath = CurrentlyDownloading.fullfilepath,
-                        downloadIndex = CurrentlyDownloading.downloadIndex
+                        downloadInfo = CurrentlyDownloading
                     });
                 }
                 else
                 {
+                    CurrentlyDownloading.progress = args.DownloadProgress.ToString();
+                    CurrentlyDownloading.speed = args.DownloadSpeed.ToString();
+                    CurrentlyDownloading.status = args.DownloadStatus;
+                    CurrentlyDownloading.filename = args.FileName;
+                    CurrentlyDownloading.fullfilepath = args.FileLocation;
+
                     OnDownloadUpdateEvent?.Invoke(this, new DownloadUpdateEventArgs()
                     {
-                        id = CurrentlyDownloading.id,
-                        animeid = CurrentlyDownloading.animeInfo.anime_id,
-                        animeTitle = CurrentlyDownloading.animeInfo.anime_title,
-                        animeCoverSmall = CurrentlyDownloading.animeInfo.anime_cover_small,
-                        animeCoverOriginal = CurrentlyDownloading.animeInfo.anime_cover_original,
-                        episodeNumber = CurrentlyDownloading.episodeNumber,
-                        bot = CurrentlyDownloading.bot,
-                        pack = CurrentlyDownloading.pack,
-                        progress = args.DownloadProgress.ToString(),
-                        speed = args.DownloadSpeed.ToString(),
-                        status = args.DownloadStatus,
-                        filename = args.FileName,
-                        filesize = args.FileSize.ToString(),
-                        fullfilepath = args.FileLocation,
-                        downloadIndex = CurrentlyDownloading.downloadIndex
+                        downloadInfo = CurrentlyDownloading
                     });
 
                 }
@@ -282,42 +283,46 @@ namespace LittleWeebLibrary.Handlers
                 if (args.DownloadStatus.Contains("COMPLETED"))
                 {
 
+
+                    CurrentlyDownloading.progress = args.DownloadProgress.ToString();
+                    CurrentlyDownloading.speed = args.DownloadSpeed.ToString();
+                    CurrentlyDownloading.status = args.DownloadStatus;
+                    CurrentlyDownloading.filename = args.FileName;
+                    CurrentlyDownloading.fullfilepath = args.FileLocation;
+
                     OnDownloadUpdateEvent?.Invoke(this, new DownloadUpdateEventArgs()
                     {
-                        id = CurrentlyDownloading.id,
-                        animeid = CurrentlyDownloading.animeInfo.anime_id,
-                        animeTitle = CurrentlyDownloading.animeInfo.anime_title,
-                        animeCoverSmall = CurrentlyDownloading.animeInfo.anime_cover_small,
-                        animeCoverOriginal = CurrentlyDownloading.animeInfo.anime_cover_original,
-                        episodeNumber = CurrentlyDownloading.episodeNumber,
-                        bot = CurrentlyDownloading.bot,
-                        pack = CurrentlyDownloading.pack,
-                        progress = args.DownloadProgress.ToString(),
-                        speed = args.DownloadSpeed.ToString(),
-                        status = args.DownloadStatus,
-                        filename = CurrentlyDownloading.filename,
-                        filesize = CurrentlyDownloading.filesize,
-                        fullfilepath = CurrentlyDownloading.fullfilepath,
-                        downloadIndex = CurrentlyDownloading.downloadIndex
+                        downloadInfo = CurrentlyDownloading
                     });
 
 
+                    await FileHistoryHandler.AddFileToFileHistory(new JsonDownloadedInfo()
+                    {
+                        anime_id = CurrentlyDownloading.anime_id,
+                        anime_name = CurrentlyDownloading.anime_name,
+                        id = CurrentlyDownloading.id,
+                        season = CurrentlyDownloading.season,
+                        episodeNumber = CurrentlyDownloading.episodeNumber,
+                        bot = CurrentlyDownloading.bot,
+                        pack = CurrentlyDownloading.pack,
+                        filename = CurrentlyDownloading.filename,
+                        filesize = CurrentlyDownloading.filesize,
+                        fullfilepath = CurrentlyDownloading.fullfilepath
+                    });
+
                     if (CurrentlyDownloading.id != string.Empty)
                     {
-                        RemoveDownload(CurrentlyDownloading.id);
-
+                        await RemoveDownload(CurrentlyDownloading.id);
                         CurrentlyDownloading = new JsonDownloadInfo();
                     }
-
 
                     DownloadProcesOnGoing = false;
                 }
                 else if (args.DownloadStatus.Contains("FAILED") || args.DownloadStatus.Contains("ABORTED"))
                 {
-
                     if (CurrentlyDownloading.id != string.Empty)
                     {
-                        RemoveDownload(CurrentlyDownloading.id);
+                        await RemoveDownload(CurrentlyDownloading.id);
 
                         CurrentlyDownloading = new JsonDownloadInfo();
                     }
@@ -329,9 +334,8 @@ namespace LittleWeebLibrary.Handlers
             {
                 DebugHandler.TraceMessage("Got download event, but no CurrrentlyDownloading object has been set!", DebugSource.TASK, DebugType.WARNING);
             }
-
-
         }
+
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Await.Warning", "CS4014:Await.Warning")]
         private async Task DownloadQueueHandler()
         {
@@ -368,11 +372,11 @@ namespace LittleWeebLibrary.Handlers
             DebugHandler.TraceMessage(settings.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
         }
 
-        public async Task<string> AbortDownload(string id = null, string filePath = null)
+        public async Task<JObject> AbortDownload(string id = null)
         {
 
             DebugHandler.TraceMessage("AbortDownload Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
-            DebugHandler.TraceMessage("ID: " + id + ", FILEPATH: " + filePath, DebugSource.TASK, DebugType.PARAMETERS);
+            DebugHandler.TraceMessage("ID: " + id , DebugSource.TASK, DebugType.PARAMETERS);
 
             try
             {
@@ -398,7 +402,7 @@ namespace LittleWeebLibrary.Handlers
                     message = "Succesfully aborted download from download queue by download json."
                 };
 
-                return succes.ToJson();
+                return succes.ToJObject();
             }
             catch (Exception e)
             {
@@ -410,75 +414,81 @@ namespace LittleWeebLibrary.Handlers
                     errormessage = "Could not remove download from queue by download json.",
                     errortype = "exception"
                 };
-                return error.ToJson();
+                return error.ToJObject();
             }
 
         }
 
-        public string AddDownloads(List<JsonDownloadInfo> download)
+        public async Task<JObject> AddDownloads(List<JsonDownloadInfo> download)
         {
             DebugHandler.TraceMessage("AddDownloads Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            JObject toReturn = new JObject();
 
-            try
+            await Task.Run(() =>
             {
-
-                long totalSizeNeeded = 0;
-                foreach (JsonDownloadInfo downloadinfo in download)
+                try
                 {
-                    DebugHandler.TraceMessage(downloadinfo.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
-                    if (downloadinfo.filesize.Contains("."))
+
+                    long totalSizeNeeded = 0;
+                    foreach (JsonDownloadInfo downloadinfo in download)
                     {
-                        downloadinfo.filesize = ((int)(double.Parse(downloadinfo.filesize, System.Globalization.CultureInfo.InvariantCulture) * 1024)).ToString();
-                        totalSizeNeeded += (int)(double.Parse(downloadinfo.filesize, System.Globalization.CultureInfo.InvariantCulture) * 1024);
+                        DebugHandler.TraceMessage(downloadinfo.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
+                        totalSizeNeeded += int.Parse(downloadinfo.filesize);
+                    }
+
+                    if (UtilityMethods.GetFreeSpaceKbits(IrcSettings.fullfilepath) > totalSizeNeeded)
+                    {
+                        DownloadQueue.AddRange(download);
+
+                        DebugHandler.TraceMessage("Succesfully added " + download.Count + " downloads to download queue.", DebugSource.TASK, DebugType.INFO);
+
+                        JsonDownloadQueue current = new JsonDownloadQueue()
+                        {
+                            downloadQueue = DownloadQueue
+                        };
+                        toReturn = current.ToJObject();
                     }
                     else
                     {
-                        totalSizeNeeded += int.Parse(downloadinfo.filesize);
+
+                        DebugHandler.TraceMessage("Could not add downloads with filesize: " + totalSizeNeeded + " due to insufficient space required: " + (UtilityMethods.GetFreeSpaceKbits(IrcSettings.fullfilepath)).ToString(), DebugSource.TASK, DebugType.WARNING);
+
+                        JsonError error = new JsonError()
+                        {
+                            type = "unsufficient_space_error",
+                            errormessage = "Could not add download with filesize: " + totalSizeNeeded + " due to insufficient space required: " + (UtilityMethods.GetFreeSpaceKbits(IrcSettings.fullfilepath)).ToString(),
+                            errortype = "warning"
+                        };
+                        toReturn = error.ToJObject();
                     }
+
                 }
-
-                if (UtilityMethods.GetFreeSpace(IrcSettings.fullfilepath) > (totalSizeNeeded * 1024 * 1024))
+                catch (Exception e)
                 {
-                    DownloadQueue.AddRange(download);
-
-
-                    DebugHandler.TraceMessage("Succesfully added " + download.Count + " downloads to download queue.", DebugSource.TASK, DebugType.INFO);
-
-                    JsonSuccess succes = new JsonSuccess()
-                    {
-                        message = "Succesfully added " + download.Count + " downloads to download queue."
-                    };
-
-                    return succes.ToJson();
-                }
-                else
-                {
-
-                    DebugHandler.TraceMessage("Could not add downloads with filesize: " + totalSizeNeeded + " due to insufficient space required: " + (UtilityMethods.GetFreeSpace(IrcSettings.fullfilepath) / 1024 / 1024).ToString(), DebugSource.TASK, DebugType.WARNING);
-
-
+                    DebugHandler.TraceMessage("Could not add downloads: " + e.ToString(), DebugSource.TASK, DebugType.WARNING);
                     JsonError error = new JsonError()
                     {
-                        type = "unsufficient_space_error",
-                        errormessage = "Could not add download with filesize: " + totalSizeNeeded + " due to insufficient space required: " + (UtilityMethods.GetFreeSpace(IrcSettings.fullfilepath) / 1024 / 1024).ToString(),
-                        errortype = "warning"
+                        type = "add_download_error",
+                        errormessage = "Could not add download to queue.",
+                        errortype = "exception",
+                        exception = e.ToString()
                     };
-                    return error.ToJson();
+                    toReturn = error.ToJObject();
                 }
+            });
 
-            }
-            catch (Exception e)
-            {
-                DebugHandler.TraceMessage("Could not add downloads: " + e.ToString(), DebugSource.TASK, DebugType.WARNING);
-                JsonError error = new JsonError()
-                {
-                    type = "add_download_error",
-                    errormessage = "Could not add download to queue.",
-                    errortype = "exception",
-                    exception = e.ToString()
-                };
-                return error.ToJson();
-            }
+            return toReturn;
+        }
+
+        private int IdGenerator(string animeId, string botName, string packnum, string episode, string season)
+        {
+            string combined = "";
+            combined += animeId;
+            combined += botName;
+            combined += packnum;
+            combined += episode;
+            combined += season;
+            return combined.GetHashCode();
         }
     }
 }

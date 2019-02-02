@@ -1,6 +1,9 @@
-﻿using System;
+﻿using PCLExt.FileStorage;
+using System;
 using System.IO;
+using System.IO.Compression;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace LittleWeebLibrary.StaticClasses
 {
@@ -42,14 +45,14 @@ namespace LittleWeebLibrary.StaticClasses
 
         }
 
-        public static long GetFreeSpace(string path)
+        public static long GetFreeSpaceKbits(string path)
         {
             DriveInfo[] systemDrives = DriveInfo.GetDrives();
             foreach (DriveInfo i in systemDrives)
             {
                 if (path.IndexOf(i.Name) > -1)
                 {
-                    return i.TotalFreeSpace;
+                    return (i.TotalFreeSpace / 128); //bytes -> kbits
                 }
             }
 
@@ -57,7 +60,83 @@ namespace LittleWeebLibrary.StaticClasses
 
         }
 
+        public static void CopyTo(Stream src, Stream dest)
+        {
+            byte[] bytes = new byte[4096];
 
+            int cnt;
+
+            while ((cnt = src.Read(bytes, 0, bytes.Length)) != 0)
+            {
+                dest.Write(bytes, 0, cnt);
+            }
+        }
+
+        public static byte[] Zip(string str)
+        {
+            var bytes = Encoding.UTF8.GetBytes(str);
+
+            using (var msi = new MemoryStream(bytes))
+            using (var mso = new MemoryStream())
+            {
+                using (var gs = new GZipStream(mso, CompressionMode.Compress))
+                {
+                    //msi.CopyTo(gs);
+                    CopyTo(msi, gs);
+                }
+
+                return mso.ToArray();
+            }
+        }
+
+        public static string Unzip(byte[] bytes)
+        {
+            using (var msi = new MemoryStream(bytes))
+            using (var mso = new MemoryStream())
+            {
+                using (var gs = new GZipStream(msi, CompressionMode.Decompress))
+                {
+                    //gs.CopyTo(mso);
+                    CopyTo(gs, mso);
+                }
+
+                return Encoding.UTF8.GetString(mso.ToArray());
+            }
+        }
+
+
+        public static bool WriteBinaryFile(string path, byte[] value)
+        {
+            try
+            {
+                using (BinaryWriter writer = new BinaryWriter(File.Open(path, FileMode.OpenOrCreate, System.IO.FileAccess.ReadWrite)))
+                {
+                    writer.Write(value);
+                }
+                return true;
+            }
+            catch 
+            {
+                return false;
+            }
+        }
+
+        public static byte[] ReadBinaryFile(string path)
+        {
+            byte[] value = null;
+            using (BinaryReader reader = new BinaryReader(File.Open(path, FileMode.OpenOrCreate, System.IO.FileAccess.ReadWrite)))
+            {
+                const int bufferSize = 4096;
+                using (var ms = new MemoryStream())
+                {
+                    byte[] buffer = new byte[bufferSize];
+                    int count;
+                    while ((count = reader.Read(buffer, 0, buffer.Length)) != 0)
+                        ms.Write(buffer, 0, count);
+                    return ms.ToArray();
+                }
+            }
+        }
 
 
         public static OperatingSystems CheckOperatingSystems()
@@ -81,6 +160,34 @@ namespace LittleWeebLibrary.StaticClasses
 
         }
 
+
+        public static string BasePath()
+        {
+            string path = "";
+#if __ANDROID__
+             path = PortablePath.Combine(PortablePath.Combine(Android.OS.Environment.ExternalStorageDirectory.AbsolutePath, "LittleWeeb"), "DataBase");
+#else
+            switch (UtilityMethods.CheckOperatingSystems())
+            {
+                case UtilityMethods.OperatingSystems.Linux:
+                    path = PortablePath.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), ".LittleWeeb");
+                    break;
+                case UtilityMethods.OperatingSystems.Windows:
+                    path = PortablePath.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "LittleWeeb");
+                    break;
+                case UtilityMethods.OperatingSystems.OsX:
+                    path = PortablePath.Combine(PortablePath.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Library"), ".LittleWeeb");
+                    break;
+            }
+#endif
+
+            if (!Directory.Exists(path))
+            {
+                Directory.CreateDirectory(path);
+            }
+
+            return path;
+        }
 
         /// <summary>
         /// https://stackoverflow.com/a/40775015/4564466

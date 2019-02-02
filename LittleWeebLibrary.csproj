@@ -49,7 +49,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
+    <PackageReference Include="LiteDB" Version="4.1.4" />
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
+    <PackageReference Include="PCLExt.FileStorage" Version="1.4.1.1" />
     <PackageReference Include="SimpleIRCLib" Version="2.2.0" />
     <PackageReference Include="SimpleWebsocketServer" Version="1.1.0" />
   </ItemGroup>

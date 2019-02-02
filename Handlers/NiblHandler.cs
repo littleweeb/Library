@@ -19,7 +19,8 @@ namespace LittleWeebLibrary.Handlers
     {
         Task<JObject> GetBotList();
         Task<JObject> SearchNibl(string query);
-        Task<JObject> SearchNibl(string query, string season);
+        Task<JObject> SearchNibl(string query, int[] episodeRange, int page = 0, int amount = 50, string sort = "name", string order = "ASC");
+        Task<int> GetLatestEpisode(string query);
         Task<JObject> GetLatestFiles(string botid);
 
     }
@@ -101,6 +102,7 @@ namespace LittleWeebLibrary.Handlers
                         info.Add("BotName",  bots.Value<string>(pack.Value<string>("botId")));
                         info.Add("PackNumber", pack.Value<string>("number"));
                         info.Add("FullFileName", pack.Value<string>("name"));
+                        info.Add("FileSize", pack.Value<string>("sizekbites"));
                         listWithPacks.Add(info);
                     }
                 }
@@ -138,10 +140,6 @@ namespace LittleWeebLibrary.Handlers
                 {
                     JObject bots = await GetBotList();
                     JObject result = JObject.Parse(searchresult);
-
-
-                    DebugHandler.TraceMessage(result.ToString(Formatting.Indented), DebugSource.TASK, DebugType.INFO);
-
                     JArray array = result.Value<JArray>("content");
                     foreach (JObject pack in array.Children())
                     {
@@ -149,6 +147,7 @@ namespace LittleWeebLibrary.Handlers
                         info.Add("BotName", bots.Value<string>(pack.Value<string>("botId")));
                         info.Add("PackNumber", pack.Value<string>("number"));
                         info.Add("FullFileName", pack.Value<string>("name"));
+                        info.Add("FileSize", pack.Value<string>("sizekbites"));
                         listWithPacks.Add(info);
                     }
                 }
@@ -159,6 +158,84 @@ namespace LittleWeebLibrary.Handlers
 
                 DebugHandler.TraceMessage("Search query: " + query + " Succeeded.", DebugSource.TASK, DebugType.INFO);
                 return JObject.Parse("{\"packs\":" + JsonConvert.SerializeObject(listWithPacks) + " }");
+            }
+        }
+
+        public async Task<JObject> SearchNibl(string query, int[] episodeRange, int page = 0, int amount = 50, string sort = "name", string order = "ASC")
+        {
+            List<string> urls = new List<string>();
+            for (int i = episodeRange[0]; i < episodeRange[1]; i++)
+            {
+                urls.Add("search/page?query=" + query + "&episodeNumber=" + i + "&page=" + page + "&size=" + amount + "&sort=" + sort + "&direction=" + order);
+            }
+
+            List<Task<string>> tasks = new List<Task<string>>();
+            foreach (string url in urls)
+            {
+                tasks.Add(Get(url));
+            }
+
+            await Task.WhenAll(tasks.ToArray());
+
+            JObject result = new JObject();
+
+          
+            foreach (Task<string> task in tasks)
+            {
+                result.Merge(JObject.Parse(task.Result));
+                task.Dispose();
+            }
+
+            JObject bots = await GetBotList();
+            JArray array = result.Value<JArray>("content");
+
+            List<Dictionary<string, string>> listWithPacks = new List<Dictionary<string, string>>();
+            foreach (JObject pack in array.Children())
+            {
+                Dictionary<string, string> info = WeebFileNameParser.ParseFullString(pack.Value<string>("name"));
+                info.Add("BotName", bots.Value<string>(pack.Value<string>("botId")));
+                info.Add("PackNumber", pack.Value<string>("number"));
+                info.Add("FullFileName", pack.Value<string>("name"));
+                info.Add("FileSize", pack.Value<string>("sizekbites"));
+                listWithPacks.Add(info);
+            }
+
+            DebugHandler.TraceMessage("Search query: " + query + " Succeeded. Total Results: " + array.Count(), DebugSource.TASK, DebugType.INFO);
+            return JObject.Parse("{\"packs\":" + JsonConvert.SerializeObject(listWithPacks) + " }");
+
+        }
+
+       
+        public async Task<int> GetLatestEpisode(string query)
+        {
+            string searchresult = await Get("search/page?query=" + query + "&episodeNumber=0&page=0&size=1&sort=episodeNumber&direction=DESC");
+
+            if (searchresult.Contains("failed:"))
+            {
+
+                DebugHandler.TraceMessage("Search query: " + query + " FAILED.", DebugSource.TASK, DebugType.WARNING);
+                return -1;
+            }
+            else
+            {
+
+                DebugHandler.TraceMessage("Search query: " + query + " SUCCEEDED.", DebugSource.TASK, DebugType.INFO);
+                List<Dictionary<string, string>> listWithPacks = new List<Dictionary<string, string>>();
+
+                try
+                {
+                    JObject result = JObject.Parse(searchresult);
+                    JArray array = result.Value<JArray>("content");
+                    int episodeNumber = array[0].Value<int>("episodeNumber");
+                    return episodeNumber;
+                    
+                }
+                catch (Exception e)
+                {
+                    DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
+                    return -1;
+                }
+
             }
         }
 
@@ -182,9 +259,5 @@ namespace LittleWeebLibrary.Handlers
 
         }
 
-        public Task<JObject> SearchNibl(string query, string season)
-        {
-            throw new NotImplementedException();
-        }
     }
 }

@@ -25,6 +25,7 @@ namespace LittleWeebLibrary
         private readonly INiblHandler NiblHandler;
         private readonly IAnimeProfileHandler AnimeProfileHandler;
         private readonly IDebugHandler DebugHandler;
+        private readonly IDataBaseHandler DataBaseHandler;
 
         //services
         private readonly IDirectoryWebSocketService DirectoryWebSocketService;
@@ -53,16 +54,19 @@ namespace LittleWeebLibrary
 
             DebugHandler.SetSettings(SettingsHandler);
 
+
+
             DirectoryHandler =      new DirectoryHandler(DebugHandler);
-            FileHistoryHandler =    new FileHistoryHandler(DebugHandler);
+            DataBaseHandler =       new DataBaseHandler(DebugHandler);
+            FileHistoryHandler =    new FileHistoryHandler(DataBaseHandler, DebugHandler);
             FileHandler =           new FileHandler(DebugHandler);
             VersionHandler =        new VersionHandler(DebugHandler);
             WebSocketHandler =      new WebSocketHandler(SettingsHandler, DebugHandler);
             IrcClientHandler =      new IrcClientHandler(SettingsHandler, DebugHandler);
-            DownloadHandler =       new DownloadHandler(IrcClientHandler, DebugHandler);
+            DownloadHandler =       new DownloadHandler(IrcClientHandler, FileHistoryHandler, FileHandler, DebugHandler);
             KitsuHandler =          new KitsuHandler(DebugHandler);
             NiblHandler =           new NiblHandler(KitsuHandler, DebugHandler);
-            AnimeProfileHandler =   new AnimeProfileHandler(KitsuHandler, NiblHandler, DebugHandler);
+            AnimeProfileHandler =   new AnimeProfileHandler(KitsuHandler, NiblHandler, DataBaseHandler, DebugHandler);
 
             //Services
             DirectoryWebSocketService = new DirectoryWebSocketService(WebSocketHandler, DirectoryHandler, DebugHandler);
@@ -70,7 +74,7 @@ namespace LittleWeebLibrary
             FileWebSocketService =      new FileWebSocketService(WebSocketHandler, FileHandler, FileHistoryHandler, DownloadHandler, DebugHandler);
             IrcWebSocketService =       new IrcWebSocketService(WebSocketHandler, IrcClientHandler, SettingsHandler, DebugHandler);
             SettingsWebSocketService =  new SettingsWebSocketService(WebSocketHandler, DirectoryHandler, DebugHandler);
-            InfoApiWebSocketService =   new InfoApiWebSocketService(WebSocketHandler, AnimeProfileHandler, NiblHandler, DebugHandler);
+            InfoApiWebSocketService =   new InfoApiWebSocketService(WebSocketHandler, AnimeProfileHandler, NiblHandler, KitsuHandler, DebugHandler);
             VersionWebSocketService =   new VersionWebSocketService(WebSocketHandler, VersionHandler, DebugHandler);
 
 
@@ -105,8 +109,6 @@ namespace LittleWeebLibrary
                 InfoApiWebSocketController,
                 VersionWebSocketController
             });
-
-            
 
         }
 

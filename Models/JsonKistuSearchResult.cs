@@ -1,13 +1,13 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using System.Collections.Generic;
 
 namespace LittleWeebLibrary.Models
 {
-    public class JsonDownloadHistoryList
+    public class JsonKistuSearchResult
     {
-        public string type { get; set; } = "download_history_list";
-        public List<JsonDownloadHistory> downloadHistorylist { get; set; } = new List<JsonDownloadHistory>();
+        public string type { get; set; } = "kitsu_search_result";
+        public JArray result { get; set; } = new JArray();
+
         public string ToJson()
         {
             return JsonConvert.SerializeObject(this);
@@ -31,5 +31,4 @@ namespace LittleWeebLibrary.Models
             return jobject;
         }
     }
-
 }

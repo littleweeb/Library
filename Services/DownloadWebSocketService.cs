@@ -75,15 +75,12 @@ namespace LittleWeebLibrary.Services
             {
                 JsonDownloadInfo downloadInfo = new JsonDownloadInfo()
                 {
-                    animeInfo = new JsonAnimeInfo()
-                    {
-                        anime_id = downloadJson.Value<JObject>("animeInfo").Value<string>("animeid"),
-                        anime_title = downloadJson.Value<JObject>("animeInfo").Value<string>("title"),
-                        anime_cover_original = downloadJson.Value<JObject>("animeInfo").Value<string>("cover_original"),
-                        anime_cover_small = downloadJson.Value<JObject>("animeInfo").Value<string>("cover_small")
-                    },
+
+                    anime_id = downloadJson.Value<JObject>("animeInfo").Value<string>("animeid"),
+                    anime_name = downloadJson.Value<JObject>("animeInfo").Value<string>("title"),
                     id = downloadJson.Value<string>("id"),
                     episodeNumber = downloadJson.Value<string>("episodeNumber"),
+                    season = downloadJson.Value<string>("season"),
                     pack = downloadJson.Value<string>("pack"),
                     bot = downloadJson.Value<string>("bot"),
                     fullfilepath= downloadJson.Value<string>("dir"),
@@ -96,9 +93,9 @@ namespace LittleWeebLibrary.Services
 
                 LastDownloadedInfo = downloadInfo;
 
-                string result = DownloadHandler.AddDownload(downloadInfo);
+                JObject result = await DownloadHandler.AddDownload(downloadInfo);
 
-                await WebSocketHandler.SendMessage(result);
+                await WebSocketHandler.SendMessage(result.ToString());
             }
             catch (Exception e)
             {
@@ -128,24 +125,11 @@ namespace LittleWeebLibrary.Services
             {
                 string id = downloadJson.Value<string>("id");
                 string filePath = downloadJson.Value<string>("path");
-                string result = "";
+                JObject result = new JObject();
                 if (id != null)
                 {
-
-                    result = DownloadHandler.RemoveDownload(id, null);
-                    await WebSocketHandler.SendMessage(result);
-
-                    string toRemove = FileHistoryHandler.RemoveFileFromFileHistory(id, null);
-                    string resultRemove = FileHandler.DeleteFile(toRemove);
-                    await  WebSocketHandler.SendMessage(resultRemove);
-                }
-                else if (filePath != null)
-                {
-                    result = DownloadHandler.RemoveDownload(null, filePath);
-                    await WebSocketHandler.SendMessage(result);
-                    string toRemove = FileHistoryHandler.RemoveFileFromFileHistory(null, filePath);
-                    string resultRemove = FileHandler.DeleteFile(toRemove);
-                    await WebSocketHandler.SendMessage(resultRemove);
+                    result = await DownloadHandler.RemoveDownload(id);
+                    await WebSocketHandler.SendMessage(result.ToString());
                 }
                 else
                 {
@@ -182,7 +166,7 @@ namespace LittleWeebLibrary.Services
         public async Task GetCurrentFileHistory()
         {
             DebugHandler.TraceMessage("GetCurrentFileHistory called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
-            await WebSocketHandler.SendMessage(FileHistoryHandler.GetCurrentFileHistory().ToJson());
+            await WebSocketHandler.SendMessage(FileHistoryHandler.GetCurrentFileHistory().ToString());
         }
 
         public async Task  Openfullfilepath()
@@ -199,37 +183,11 @@ namespace LittleWeebLibrary.Services
 
             try
             {
-                JsonDownloadInfo update = new JsonDownloadInfo()
-                {
-                    id = args.id,
-                    animeInfo = new JsonAnimeInfo()
-                    {
-                        anime_cover_original = args.animeCoverOriginal,
-                        anime_id = args.animeid,
-                        anime_cover_small = args.animeCoverSmall,
-                        anime_title = args.animeTitle
-                    },
-                    episodeNumber = args.episodeNumber,
-                    bot = args.bot,
-                    pack = args.pack,
-                    progress = args.progress,
-                    speed = args.speed,
-                    status = args.status,
-                    filename = args.filename,
-                    filesize = args.filesize,
-                    downloadIndex = args.downloadIndex,
-                    fullfilepath= args.fullfilepath
-                };
+                await WebSocketHandler.SendMessage(args.downloadInfo.ToJson());
 
-                await WebSocketHandler.SendMessage(update.ToJson());
-                if (update.filename != null && update.fullfilepath!= null)
+                if (args.downloadInfo.status == "COMPLETED")
                 {
-                    FileHistoryHandler.AddFileToFileHistory(update);
-                }
-
-                if (update.status == "FAILED" || update.status == "ABORTED")
-                {
-                    FileHistoryHandler.RemoveFileFromFileHistory(update.id);
+                    await GetCurrentFileHistory();
                 }
             }
             catch (Exception e)
@@ -261,13 +219,8 @@ namespace LittleWeebLibrary.Services
             if (id != null)
             {
 
-                string result = await DownloadHandler.AbortDownload(id);
-                await WebSocketHandler.SendMessage(result);
-            }
-            else if (filePath != null)
-            {
-                string result = await DownloadHandler.AbortDownload(null, filePath);
-                await WebSocketHandler.SendMessage(result);
+                JObject result = await DownloadHandler.AbortDownload(id);
+                await WebSocketHandler.SendMessage(result.ToString());
             }
             else
             {
@@ -299,18 +252,14 @@ namespace LittleWeebLibrary.Services
                 {
                     JsonDownloadInfo downloadInfo = new JsonDownloadInfo()
                     {
-                        animeInfo = new JsonAnimeInfo()
-                        {
-                            anime_id = downloadJson.Value<JObject>("animeInfo").Value<string>("animeid"),
-                            anime_title = downloadJson.Value<JObject>("animeInfo").Value<string>("title"),
-                            anime_cover_original = downloadJson.Value<JObject>("animeInfo").Value<string>("cover_original"),
-                            anime_cover_small = downloadJson.Value<JObject>("animeInfo").Value<string>("cover_small")
-                        },
+
+                        anime_id = downloadJson.Value<JObject>("animeInfo").Value<string>("animeid"),
+                        anime_name = downloadJson.Value<JObject>("animeInfo").Value<string>("title"),
                         id = downloadJson.Value<string>("id"),
                         episodeNumber = downloadJson.Value<string>("episodeNumber"),
+                        season = downloadJson.Value<string>("season"),
                         pack = downloadJson.Value<string>("pack"),
                         bot = downloadJson.Value<string>("bot"),
-                        fullfilepath = downloadJson.Value<string>("dir"),
                         filename = downloadJson.Value<string>("filename"),
                         progress = downloadJson.Value<string>("progress"),
                         speed = downloadJson.Value<string>("speed"),
@@ -322,9 +271,9 @@ namespace LittleWeebLibrary.Services
                     batch.Add(downloadInfo);
                 }
                 
-                string result = DownloadHandler.AddDownloads(batch);
+                JObject result = await DownloadHandler.AddDownloads(batch);
 
-                await WebSocketHandler.SendMessage(result);
+                await WebSocketHandler.SendMessage(result.ToString());
             }
             catch (Exception e)
             {

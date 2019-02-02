@@ -25,8 +25,7 @@ namespace LittleWeebLibrary.Services
         private readonly IDebugHandler DebugHandler;
 
         public FileWebSocketService(IWebSocketHandler webSocketHandler, IFileHandler fileHandler, IFileHistoryHandler fileHistoryHandler, IDownloadHandler downloadHandler, IDebugHandler debugHandler)
-        {
-           
+        {           
             debugHandler.TraceMessage("Constructor called.", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
 
             WebSocketHandler = webSocketHandler;

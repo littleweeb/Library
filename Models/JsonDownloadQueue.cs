@@ -1,13 +1,13 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Collections.Generic;
 
 namespace LittleWeebLibrary.Models
 {
-    public class JsonReceivedResponse
+    public class JsonDownloadQueue
     {
-        public string type = "received_websocket_message";
-        public string received { get; set; } = string.Empty;
-
+        public string type { get; set; } = "download_queue";
+        public List<JsonDownloadInfo> downloadQueue { get; set; } = new List<JsonDownloadInfo>();
         public string ToJson()
         {
             return JsonConvert.SerializeObject(this);
@@ -31,4 +31,5 @@ namespace LittleWeebLibrary.Models
             return jobject;
         }
     }
+
 }

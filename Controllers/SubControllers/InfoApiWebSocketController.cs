@@ -49,13 +49,21 @@ namespace LittleWeebLibrary.Controllers.SubControllers
                         {
                             switch (action)
                             {
-                                case "get_files_for_anime":
+                                case "search_nibl":
                                     InfoApiWebSocketService.GetFilesForAnime(extra);
                                     break;
                                 case "get_anime_profile":
                                     InfoApiWebSocketService.GetAnimeProfile(extra);
                                     break;
-
+                                case "get_anime_episodes":
+                                    InfoApiWebSocketService.GetAnimeEpisodes(extra);
+                                    break;
+                                case "get_currently_airing":
+                                    InfoApiWebSocketService.GetCurrentlyAiring(extra);
+                                    break;
+                                case "search_kitsu":
+                                    InfoApiWebSocketService.SearchKitsu(extra);
+                                    break;
                             }
                         }
                         else
@@ -64,8 +72,7 @@ namespace LittleWeebLibrary.Controllers.SubControllers
                             {
                                 case "get_currently_airing":
                                     InfoApiWebSocketService.GetCurrentlyAiring();
-                                    break;
-                               
+                                    break;                               
                             }
                         }
                     }

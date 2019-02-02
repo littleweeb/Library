@@ -125,7 +125,7 @@ namespace LittleWeebLibrary.Handlers
             try
             {
                 string xdccMessage = "/msg " + download.bot + " xdcc send #" + download.pack;
-                IrcClient.SetCustomDownloadDir(Path.Combine(IrcSettings.fullfilepath, download.fullfilepath));
+                IrcClient.SetCustomDownloadDir(download.downloadDirectory);
                 SendMessage(xdccMessage);
             }
             catch (Exception e)

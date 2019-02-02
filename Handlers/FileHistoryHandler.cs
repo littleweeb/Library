@@ -2,252 +2,139 @@
 using LittleWeebLibrary.GlobalInterfaces;
 using LittleWeebLibrary.Models;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace LittleWeebLibrary.Handlers
 {
     public interface IFileHistoryHandler
     {
-        void AddFileToFileHistory(JsonDownloadInfo downloadInfo);
-        string RemoveFileFromFileHistory(string id = null, string filepath = null);
-        JsonDownloadHistoryList GetCurrentFileHistory();
+        Task<bool> AddFileToFileHistory(JsonDownloadedInfo downloadInfo);
+        Task<bool> RemoveFileFromFileHistory(string anime_id, string id = null, string filepath = null);
+        Task<JsonDownloadedList> GetCurrentFileHistory();
     }
     public class FileHistoryHandler : IFileHistoryHandler
-    {
-       
+    {     
 
         private readonly string fileHistoryPath = "";
         private readonly string fileName = "";
 
         private readonly IDebugHandler DebugHandler;
+        private readonly IDataBaseHandler DataBaseHandler;
 
-        public FileHistoryHandler(IDebugHandler debugHandler)
+        public FileHistoryHandler( IDataBaseHandler dataBaseHandler, IDebugHandler debugHandler)
         {
-
             debugHandler.TraceMessage("Constructor Called", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
             DebugHandler = debugHandler;
-
-#if __ANDROID__
-            fileHistoryPath = Path.Combine(Path.Combine(Android.OS.Environment.ExternalStorageDirectory.AbsolutePath, "LittleWeeb"), "FileHistory");
-#else
-            fileHistoryPath = Path.Combine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "LittleWeeb"), "FileHistory");
-#endif
-            fileName = "FileHistory.json";
-
-            if (!Directory.Exists(fileHistoryPath))
-            {
-                DebugHandler.TraceMessage("File History directory does not exist, creating: " + fileHistoryPath, DebugSource.CONSTRUCTOR, DebugType.INFO);
-                Directory.CreateDirectory(fileHistoryPath);
-            }
-
-            if (!File.Exists(Path.Combine(fileHistoryPath, fileName))) {
-
-                DebugHandler.TraceMessage("File History file does not exist, creating: " + Path.Combine(fileHistoryPath, fileName), DebugSource.CONSTRUCTOR, DebugType.INFO);
-                File.Create(Path.Combine(fileHistoryPath, fileName));
-            }
-
-
+            DataBaseHandler = dataBaseHandler;
         }
 
-        public void AddFileToFileHistory(JsonDownloadInfo downloadInfo)
+        public async Task<bool> AddFileToFileHistory(JsonDownloadedInfo downloadInfo)
         {
 
             DebugHandler.TraceMessage("AddFileToFileHistory Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
             DebugHandler.TraceMessage(downloadInfo.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
+
+            JObject current_anime = await DataBaseHandler.GetJObject("downloads", "anime_id", downloadInfo.anime_id);
+
+            if (current_anime == null)
+            {
+                current_anime = await DataBaseHandler.GetJObject("anime", "anime_id", downloadInfo.anime_id);
+            }
+
+            if (current_anime != null)
+            {
+                JArray currentlydownloaded = current_anime.Value<JArray>("anime_episodes_downloads");
+
+                foreach (JObject downloaded in currentlydownloaded) {
+                    if (downloaded.Value<string>("id") == downloadInfo.id)
+                    {
+                        return false;
+                    }
+                }
+
+                currentlydownloaded.Add(downloadInfo);
+                current_anime["anime_episodes_downloads"] = currentlydownloaded;
+
+                await DataBaseHandler.StoreJObject("downloads", current_anime);
+            }
+
+            return true;
            
-
-            if (!File.Exists(Path.Combine(fileHistoryPath, fileName)))
-            {
-
-                JsonDownloadHistory downloadHistoryObj = new JsonDownloadHistory()
-                {
-                    animeInfo = downloadInfo.animeInfo
-                };
-
-                downloadHistoryObj.downloadHistory.Add(downloadInfo);
-
-                JsonDownloadHistoryList list = new JsonDownloadHistoryList();
-                if (!list.downloadHistorylist.Contains(downloadHistoryObj))
-                {
-                    list.downloadHistorylist.Add(downloadHistoryObj);
-
-                    using (var fileStream = File.Open(Path.Combine(fileHistoryPath, fileName), FileMode.CreateNew, FileAccess.ReadWrite, FileShare.ReadWrite))
-                    {
-                        using (var streamWriter = new StreamWriter(fileStream))
-                        {
-                            streamWriter.Write(list.ToJson());
-                        }
-                    }
-                }
-            }
-            else
-            {
-                JsonDownloadHistoryList list = GetCurrentFileHistory();
-              
-
-
-                bool animeAlreadyExists = false;
-                bool fileAlreadyExists = false;
-
-
-                int listIndex = 0;
-                foreach (JsonDownloadHistory downloadHistoryObject in list.downloadHistorylist)
-                {
-
-                    if (downloadHistoryObject.animeInfo.anime_id == downloadInfo.animeInfo.anime_id)
-                    {
-                        animeAlreadyExists = true;
-
-                        int downloadIndex = 0;
-                        foreach (JsonDownloadInfo info in downloadHistoryObject.downloadHistory)
-                        {
-                            if (info.id == downloadInfo.id || info.filename == downloadInfo.filename || (info.pack == downloadInfo.pack && info.bot == downloadInfo.bot))
-                            {
-                                list.downloadHistorylist[listIndex].downloadHistory[downloadIndex] = downloadInfo;
-                                fileAlreadyExists = true;
-                                break;
-                            }
-                            downloadIndex++;
-                        }
-
-                        if (!fileAlreadyExists)
-                        {
-                            list.downloadHistorylist[listIndex].downloadHistory.Add(downloadInfo);
-                        }
-                        break;
-                    }
-                    listIndex++;
-                }
-
-                if (!fileAlreadyExists && !animeAlreadyExists)
-                {
-                    JsonDownloadHistory downloadHistoryObj = new JsonDownloadHistory()
-                    {
-                        animeInfo = downloadInfo.animeInfo
-                    };
-
-                    downloadHistoryObj.downloadHistory.Add(downloadInfo);
-
-                    list.downloadHistorylist.Add(downloadHistoryObj);
-                }
-
-                using (var fileStream = File.Open(Path.Combine(fileHistoryPath, fileName), FileMode.Truncate, FileAccess.ReadWrite, FileShare.ReadWrite))
-                {
-                    using (var streamWriter = new StreamWriter(fileStream))
-                    {
-                        streamWriter.Write(list.ToJson());
-                    }
-                }
-            }
         }
 
-        public string RemoveFileFromFileHistory(string id = null, string filepath = null)
+        public async Task<bool> RemoveFileFromFileHistory(string anime_id, string id = null, string filepath = null)
         {
 
             DebugHandler.TraceMessage("RemoveFileFromFileHistory Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
-
-
             if (id != null)
             {
-                DebugHandler.TraceMessage("ID: " + id , DebugSource.TASK, DebugType.PARAMETERS);
+                DebugHandler.TraceMessage("ID: " + id, DebugSource.TASK, DebugType.PARAMETERS);
             }
             if (filepath != null)
             {
                 DebugHandler.TraceMessage("Filepath: " + filepath, DebugSource.TASK, DebugType.PARAMETERS);
             }
 
-            if (File.Exists(Path.Combine(fileHistoryPath, fileName)))
+            JObject current_anime = await DataBaseHandler.GetJObject("downloads", "anime_id", anime_id);
+
+            if (current_anime != null)
             {
+                JArray currentlydownloaded = current_anime.Value<JArray>("anime_episodes_downloads");
 
-                string fileRemovedFromList = null;
-
-                JsonDownloadHistoryList list = GetCurrentFileHistory();
-
-                int indexList =0;
-                int indexDownloadInfo = -1;
-                bool downloadFound = false;
-
-                foreach (JsonDownloadHistory history in list.downloadHistorylist)
+                int indexToDelete = 0;
+                bool found = false;
+                foreach (JObject downloaded in currentlydownloaded)
                 {
-                    indexDownloadInfo = 0;
-                    foreach (JsonDownloadInfo download in history.downloadHistory)
+                    if (downloaded.Value<string>("id") == id)
                     {
-                        if (filepath != null)
-                        {
-                            if (Path.Combine(download.fullfilepath, download.filename) == filepath)
-                            {
-                                fileRemovedFromList = download.fullfilepath;
-                                downloadFound = true;
-                                break;
-                            }
-                        }
-                        else if (id != null)
-                        {
-
-                            if (download.id == id)
-                            {
-                                fileRemovedFromList = download.fullfilepath;
-                                downloadFound = true;
-                                break;
-                            }
-                        }
-                        else
-                        {
-                            downloadFound = false;
-                            break;
-                        }
-                        indexDownloadInfo++;
-                    }
-
-                    if (downloadFound)
-                    {
+                        found = true;
                         break;
                     }
 
-                    indexList++;
-                }
-
-                if (downloadFound)
-                {
-                    list.downloadHistorylist[indexList].downloadHistory.RemoveAt(indexDownloadInfo);
-
-                    if (list.downloadHistorylist[indexList].downloadHistory.Count == 0)
+                    if (downloaded.Value<string>("filepath") == id)
                     {
-                        list.downloadHistorylist.RemoveAt(indexList);
+                        found = true;
+                        break;
                     }
+                    indexToDelete++;
                 }
-                using (var fileStream = File.Open(Path.Combine(fileHistoryPath, fileName), FileMode.Truncate, FileAccess.ReadWrite, FileShare.ReadWrite))
+                if (found)
                 {
-                    using (var streamWriter = new StreamWriter(fileStream))
-                    {
-                        streamWriter.Write(list.ToJson());
-                    }
-                }
+                    currentlydownloaded.RemoveAt(indexToDelete);
+                    current_anime["anime_episodes_downloads"] = currentlydownloaded;
 
-                return fileRemovedFromList;
+                    if (currentlydownloaded.Count > 0)
+                    {
+                        await DataBaseHandler.UpdateJObject("downloads", current_anime, "anime_id", anime_id);
+                    }
+                    else
+                    {
+                        await DataBaseHandler.RemoveJObject("downloads", "anime_id", anime_id);
+                    }
+
+                    return true;
+                }
             }
-            else
-            {
-                return null;
-            }
+            return false;
         }
         
 
-        public JsonDownloadHistoryList GetCurrentFileHistory()
+        public async Task<JsonDownloadedList> GetCurrentFileHistory()
         {
 
             DebugHandler.TraceMessage("GetCurrentFileHistory Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
-            string readContent = "";
-            using (var fileStream = File.Open(Path.Combine(fileHistoryPath, fileName), FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
-            {
-                using (var streamReader = new StreamReader(fileStream))
-                {
-                    readContent = streamReader.ReadToEnd();
-                }
-            }
 
-            return JsonConvert.DeserializeObject<JsonDownloadHistoryList>(readContent);
+            JArray listWithDownloads = await DataBaseHandler.GetCollection("downloads");
+
+            JsonDownloadedList list = new JsonDownloadedList()
+            {
+                downloadHistorylist = listWithDownloads
+            };
+
+            return list;
         }
     }
 }

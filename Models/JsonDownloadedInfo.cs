@@ -4,11 +4,19 @@ using System.Collections.Generic;
 
 namespace LittleWeebLibrary.Models
 {
-    public class JsonDownloadHistory
+    public class JsonDownloadedInfo
     {
-        public string type = "download_history";
-        public JsonAnimeInfo animeInfo { get; set; } = new JsonAnimeInfo();
-        public List<JsonDownloadInfo> downloadHistory { get; set; } = new List<JsonDownloadInfo>();
+        public string type = "downloaded_file";
+        public string anime_id { get; set; } = string.Empty;
+        public string anime_name { get; set; } = string.Empty;
+        public string id { get; set; } = string.Empty;
+        public string season { get; set; } = string.Empty;
+        public string episodeNumber { get; set; } = string.Empty;
+        public string bot { get; set; } = string.Empty;
+        public string pack { get; set; } = string.Empty;
+        public string filename { get; set; } = string.Empty;
+        public string filesize { get; set; } = string.Empty;
+        public string fullfilepath { get; set; } = string.Empty;
 
         public string ToJson()
         {

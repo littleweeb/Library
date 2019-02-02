@@ -330,10 +330,10 @@ namespace LittleWeebLibrary.Handlers
 
             JsonFreeSpace space = new JsonFreeSpace
             {
-                freespacebytes = UtilityMethods.GetFreeSpace(path),
+                freespacebytes = UtilityMethods.GetFreeSpaceKbits(path) * 128,
             };
-            space.freespacekbytes = space.freespacebytes / 1024;
-            space.freespacembytes = space.freespacekbytes / 1024;
+            space.freespacekbytes = space.freespacebytes * 128 / 1024;
+            space.freespacembytes = space.freespacekbytes * 128 / 1024;
 
             return space.ToJson();
         }

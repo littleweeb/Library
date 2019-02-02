@@ -1,10 +1,12 @@
 ﻿using LittleWeebLibrary.EventArguments;
 using LittleWeebLibrary.GlobalInterfaces;
 using LittleWeebLibrary.Settings;
+using LittleWeebLibrary.StaticClasses;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using PCLExt.FileStorage;
 
 namespace LittleWeebLibrary.Handlers
 {
@@ -34,25 +36,17 @@ namespace LittleWeebLibrary.Handlers
             string littleWeebSettingsName = "LittleWeebSettings.json";
             string ircSettingsName = "IrcSettings.json";
 
-#if __ANDROID__
-            BasePath = Path.Combine(Android.OS.Environment.ExternalStorageDirectory.Path, "LittleWeeb");
-#else
-            BasePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "LittleWeeb");
-#endif
 
-            if (!Directory.Exists(BasePath))
-            {
-                Directory.CreateDirectory(BasePath);
-            }
 
-            SettingsPath = Path.Combine(BasePath, "Settings");
+
+            SettingsPath = PortablePath.Combine(UtilityMethods.BasePath(), "Settings");
 
             if (!Directory.Exists(SettingsPath))
             {
                 Directory.CreateDirectory(SettingsPath);
             }
 
-            if (!File.Exists(Path.Combine(SettingsPath, littleWeebSettingsName))){
+            if (!File.Exists(PortablePath.Combine(SettingsPath, littleWeebSettingsName))){
                 WriteLittleWeebSettings(new LittleWeebSettings()
                 {
                     Local = true,
@@ -63,7 +57,7 @@ namespace LittleWeebLibrary.Handlers
                     MaxDebugLogSize = 2000
                 });
             }
-            if (!File.Exists(Path.Combine(SettingsPath, ircSettingsName)))
+            if (!File.Exists(PortablePath.Combine(SettingsPath, ircSettingsName)))
             {
                 WriteIrcSettings(new IrcSettings());
             }
@@ -82,9 +76,9 @@ namespace LittleWeebLibrary.Handlers
                 string settingsName = "IrcSettings.json";
                 string settingsJson = JsonConvert.SerializeObject(ircSettings);
 
-                if (!File.Exists(Path.Combine(SettingsPath, settingsName)))
+                if (!File.Exists(PortablePath.Combine(SettingsPath, settingsName)))
                 {
-                    using (var fileStream = File.Open(Path.Combine(SettingsPath, settingsName), FileMode.OpenOrCreate, FileAccess.Write, FileShare.ReadWrite))
+                    using (var fileStream = File.Open(PortablePath.Combine(SettingsPath, settingsName), FileMode.OpenOrCreate, System.IO.FileAccess.Write, FileShare.ReadWrite))
                     {
                         using (var streamWriter = new StreamWriter(fileStream))
                         {
@@ -94,7 +88,7 @@ namespace LittleWeebLibrary.Handlers
                 }
                 else
                 {
-                    using (var fileStream = File.Open(Path.Combine(SettingsPath, settingsName), FileMode.Truncate, FileAccess.ReadWrite, FileShare.ReadWrite))
+                    using (var fileStream = File.Open(PortablePath.Combine(SettingsPath, settingsName), FileMode.Truncate, System.IO.FileAccess.ReadWrite, FileShare.ReadWrite))
                     {
                         using (var streamWriter = new StreamWriter(fileStream))
                         {
@@ -122,9 +116,9 @@ namespace LittleWeebLibrary.Handlers
             {
                 string settingsName = "LittleWeebSettings.json";
                 string settingsJson = JsonConvert.SerializeObject(littleWeebSettings);
-                if (!File.Exists(Path.Combine(SettingsPath, settingsName)))
+                if (!File.Exists(PortablePath.Combine(SettingsPath, settingsName)))
                 {
-                    using (var fileStream = File.Open(Path.Combine(SettingsPath, settingsName), FileMode.OpenOrCreate, FileAccess.Write, FileShare.ReadWrite))
+                    using (var fileStream = File.Open(PortablePath.Combine(SettingsPath, settingsName), FileMode.OpenOrCreate, System.IO.FileAccess.Write, FileShare.ReadWrite))
                     {
                         using (var streamWriter = new StreamWriter(fileStream))
                         {
@@ -134,7 +128,7 @@ namespace LittleWeebLibrary.Handlers
                 }
                 else
                 {
-                    using (var fileStream = File.Open(Path.Combine(SettingsPath, settingsName), FileMode.Truncate, FileAccess.ReadWrite, FileShare.ReadWrite))
+                    using (var fileStream = File.Open(PortablePath.Combine(SettingsPath, settingsName), FileMode.Truncate, System.IO.FileAccess.ReadWrite, FileShare.ReadWrite))
                     {
                         using (var streamWriter = new StreamWriter(fileStream))
                         {
@@ -157,10 +151,10 @@ namespace LittleWeebLibrary.Handlers
             try
             {
                 string settingsName = "LittleWeebSettings.json";
-                if (File.Exists(Path.Combine(SettingsPath, settingsName)))
+                if (File.Exists(PortablePath.Combine(SettingsPath, settingsName)))
                 {
                     string settingsJson = "";
-                    using (var fileStream = File.Open(Path.Combine(SettingsPath, settingsName), FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
+                    using (var fileStream = File.Open(PortablePath.Combine(SettingsPath, settingsName), FileMode.Open, System.IO.FileAccess.ReadWrite, FileShare.ReadWrite))
                     {
                         using (var streamReader = new StreamReader(fileStream))
                         {
@@ -200,10 +194,10 @@ namespace LittleWeebLibrary.Handlers
             try
             {
                 string settingsName = "IrcSettings.json";
-                if (File.Exists(Path.Combine(SettingsPath, settingsName)))
+                if (File.Exists(PortablePath.Combine(SettingsPath, settingsName)))
                 {
                     string settingsJson = "";
-                    using (var fileStream = File.Open(Path.Combine(SettingsPath, settingsName), FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
+                    using (var fileStream = File.Open(PortablePath.Combine(SettingsPath, settingsName), FileMode.Open, System.IO.FileAccess.ReadWrite, FileShare.ReadWrite))
                     {
                         using (var streamReader = new StreamReader(fileStream))
                         {

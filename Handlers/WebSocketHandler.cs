@@ -77,6 +77,7 @@ namespace LittleWeebLibrary.Handlers
 
             try
             {
+
                 if (await Server.SendTextMessageAsync(message))
                 {
 
