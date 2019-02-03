@@ -14,6 +14,7 @@ namespace LittleWeebLibrary.Handlers
     public interface IDataBaseHandler
     {
         Task<JArray> GetCollection(string collection);
+        Task<JObject> GetJObject(string collection, string id);
         Task<JObject> GetJObject(string collection, string property, string value);
         Task<bool> StoreJObject(string collection, JObject toStore, string id = "");
         Task<bool> UpdateJObject(string collection, JObject toUpdate, string property, string value);
@@ -66,8 +67,8 @@ namespace LittleWeebLibrary.Handlers
             foreach (string path in jsonFiles)
             {
                 if (Path.GetExtension(path) == ".jzip") {
-                    byte[] data = UtilityMethods.ReadBinaryFile(path);
-                    string content = UtilityMethods.Unzip(data);
+                    byte[] data = await UtilityMethods.ReadBinaryFile(path);
+                    string content = await UtilityMethods.Unzip(data);
                     JObject jObject = JObject.Parse(content);
                     collectionlist.Add(jObject);
                 }
@@ -101,8 +102,8 @@ namespace LittleWeebLibrary.Handlers
 
                     if (File.Exists(path))
                     {
-                        byte[] data = UtilityMethods.ReadBinaryFile(path);
-                        string content = UtilityMethods.Unzip(data);
+                        byte[] data = await UtilityMethods.ReadBinaryFile(path);
+                        string content = await UtilityMethods.Unzip(data);
                         JObject jObject = JObject.Parse(content);
                         toReturn = jObject;
                     }
@@ -158,8 +159,8 @@ namespace LittleWeebLibrary.Handlers
                     pathparsing = path;
                     if (Path.GetExtension(path) == ".jzip")
                     {
-                        byte[] data = UtilityMethods.ReadBinaryFile(path);
-                        string content = UtilityMethods.Unzip(data);
+                        byte[] data = await UtilityMethods.ReadBinaryFile(path);
+                        string content = await UtilityMethods.Unzip(data);
                         JObject jObject = JObject.Parse(content);
 
                         if (jObject.Value<string>(property) == value)
@@ -198,33 +199,36 @@ namespace LittleWeebLibrary.Handlers
 
             bool toReturn = false;
 
-            if (Directory.Exists(collectionPath))
+            await Task.Run(() =>
             {
+                if (Directory.Exists(collectionPath))
+                {
 
-                string toRemove = PortablePath.Combine(collectionPath, id + ".jzip"); 
-                try
-                {
-                    string[] jsonFiles = Directory.GetFiles(collectionPath);
+                    string toRemove = PortablePath.Combine(collectionPath, id + ".jzip");
+                    try
+                    {
 
-                    if (File.Exists(toRemove))
-                    {
-                        File.Delete(toRemove);
-                        toReturn = true;
+                        if (File.Exists(toRemove))
+                        {
+                            File.Delete(toRemove);
+                            toReturn = true;
+                        }
+                        else
+                        {
+                            DebugHandler.TraceMessage("Failed to remove file: " + toRemove + ", error: File not found!", DebugSource.TASK, DebugType.ERROR);
+                        }
                     }
-                    else
+                    catch (IOException ioe)
                     {
-                        DebugHandler.TraceMessage("Failed to remove file: " + toRemove + ", error: File not found!", DebugSource.TASK, DebugType.ERROR);
+                        DebugHandler.TraceMessage("Failed to remove file: " + toRemove + ", error: " + ioe.ToString(), DebugSource.TASK, DebugType.ERROR);
+                    }
+                    catch (Exception e)
+                    {
+                        DebugHandler.TraceMessage("Failed to remove file: " + toRemove + ", error: " + e.ToString(), DebugSource.TASK, DebugType.ERROR);
                     }
                 }
-                catch (IOException ioe)
-                {
-                    DebugHandler.TraceMessage("Failed to remove file: " + toRemove + ", error: " + ioe.ToString(), DebugSource.TASK, DebugType.ERROR);
-                }
-                catch (Exception e)
-                {
-                    DebugHandler.TraceMessage("Failed to remove file: " + toRemove + ", error: " + e.ToString(), DebugSource.TASK, DebugType.ERROR);
-                }
-            }
+            });
+           
 
             DebugHandler.TraceMessage("Result: " + toReturn.ToString(), DebugSource.TASK, DebugType.INFO);
 
@@ -256,8 +260,8 @@ namespace LittleWeebLibrary.Handlers
                     {
                         if (Path.GetExtension(path) == ".jzip")
                         {
-                            byte[] data = UtilityMethods.ReadBinaryFile(path);
-                            string content = UtilityMethods.Unzip(data);
+                            byte[] data = await UtilityMethods.ReadBinaryFile(path);
+                            string content = await UtilityMethods.Unzip(data);
                             JObject jObject = JObject.Parse(content);
 
                             if (jObject.Value<string>(property) == value)
@@ -312,8 +316,8 @@ namespace LittleWeebLibrary.Handlers
 
                 toStore["_id"] = id;
 
-                byte[] zipped = UtilityMethods.Zip(toStore.ToString());
-                UtilityMethods.WriteBinaryFile(pathparsing, zipped);
+                byte[] zipped = await UtilityMethods.Zip(toStore.ToString());
+                await UtilityMethods.WriteBinaryFile(pathparsing, zipped);
 
                 toReturn = true;
             }

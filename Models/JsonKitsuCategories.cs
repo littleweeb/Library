@@ -4,10 +4,10 @@ using System.Collections.Generic;
 
 namespace LittleWeebLibrary.Models
 {
-    public class JsonDirectories
+    public class JsonKistuGenres
     {
-        public string type { get; set; } = "directories";
-        public List<JsonDirectory> directories = new List<JsonDirectory>();
+        public string type { get; set; } = "kitsu_genres";
+        public JArray result { get; set; } = new JArray();
 
         public string ToJson()
         {

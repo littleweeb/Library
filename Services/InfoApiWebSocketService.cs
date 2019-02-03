@@ -20,6 +20,10 @@ namespace LittleWeebLibrary.Services
         Task GetAnimeProfile(JObject query);
         Task GetFilesForAnime(JObject query);
         Task GetAnimeEpisodes(JObject query);
+        Task AddRule(JObject query);
+        Task GetAllGenres();
+        Task GetAllCategories();
+        Task GetBotList();
     }
     public class InfoApiWebSocketService : IInfoApiWebSocketService
     {     
@@ -27,11 +31,12 @@ namespace LittleWeebLibrary.Services
         private readonly IAnimeProfileHandler AnimeProfileHandler;
         private readonly INiblHandler NiblHandler;
         private readonly IKitsuHandler KitsuHandler;
+        private readonly IAnimeRuleHandler AnimeRuleHandler;
         private readonly IWebSocketHandler WebSocketHandler;
         private readonly IDebugHandler DebugHandler;
         private WeebFileNameParser WeebFileNameParser;
 
-        public InfoApiWebSocketService(IWebSocketHandler webSocketHandler, IAnimeProfileHandler infoApiHandler, INiblHandler niblHandler, IKitsuHandler kitsuHandler, IDebugHandler debugHandler)
+        public InfoApiWebSocketService(IWebSocketHandler webSocketHandler, IAnimeProfileHandler infoApiHandler, INiblHandler niblHandler, IKitsuHandler kitsuHandler, IAnimeRuleHandler animeRuleHandler, IDebugHandler debugHandler)
         {
             debugHandler.TraceMessage("Constructor Called.", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
 
@@ -39,6 +44,7 @@ namespace LittleWeebLibrary.Services
             AnimeProfileHandler = infoApiHandler;
             NiblHandler = niblHandler;
             KitsuHandler = kitsuHandler;
+            AnimeRuleHandler = animeRuleHandler;
             DebugHandler = debugHandler;
 
             WeebFileNameParser = new WeebFileNameParser();
@@ -189,8 +195,8 @@ namespace LittleWeebLibrary.Services
 
                     foreach (KeyValuePair<string, JToken> prop in val)
                     {
-                        DebugHandler.TraceMessage("Adding query for " + prop.Key+ " with value: " + prop.ToString(), DebugSource.TASK, DebugType.INFO);
-                        listWithQueries.Add(prop.Key, prop.ToString());
+                        DebugHandler.TraceMessage("Adding query for " + prop.Key+ " with value: " + prop.Value.ToString(), DebugSource.TASK, DebugType.INFO);
+                        listWithQueries.Add(prop.Key, prop.Value.ToString());
                     }
                 }
             }
@@ -209,6 +215,115 @@ namespace LittleWeebLibrary.Services
             {
                 JsonKistuSearchResult searchResult = await KitsuHandler.SearchAnime(query.Value<string>("search"), listWithQueries);
                 await WebSocketHandler.SendMessage(searchResult.ToJson());
+            }
+
+        }
+
+        public async Task AddRule(JObject query)
+        {
+            DebugHandler.TraceMessage(" AddRule Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            string animeid = query.Value<string>("id");
+            JObject rules = query.Value<JObject>("rules");
+
+            bool succes = await AnimeRuleHandler.AddRules(rules, animeid);
+
+            if (succes)
+            {
+                JsonSuccess jsonSuccess = new JsonSuccess()
+                {
+                    message = "Succesfully added rules to anime with id: " + animeid
+                };
+
+                await WebSocketHandler.SendMessage(jsonSuccess.ToJson());
+            }
+            else
+            {
+                JsonError error = new JsonError()
+                {
+                    type = "add_rule_error",
+                    errormessage = "Could not add rule to anime with id: " + animeid,
+                    errortype = "warning"
+                };
+
+                await WebSocketHandler.SendMessage(error.ToJson());
+            }
+        }
+
+        public async Task GetAllGenres()
+        {
+            DebugHandler.TraceMessage(" GetAllGenres Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            JsonKistuGenres genres = new JsonKistuGenres()
+            {
+                result = await KitsuHandler.GetAllGenres()
+            };
+
+            if (genres.result.Count > 0)
+            {
+
+                await WebSocketHandler.SendMessage(genres.ToJson());
+            }
+            else
+            {
+                JsonError error = new JsonError()
+                {
+                    type = "kitsu_genres_error",
+                    errormessage = "Failed to retrieve genres from kitsu.",
+                    errortype = "warning"
+                };
+
+                await WebSocketHandler.SendMessage(error.ToJson());
+            }
+        }
+
+        public async Task GetAllCategories()
+        {
+            DebugHandler.TraceMessage(" GetAllCategories Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            JsonKistuCategories categories = new JsonKistuCategories()
+            {
+                result = await KitsuHandler.GetAllCategories()
+            };
+
+            if (categories.result.Count > 0)
+            {
+
+                await WebSocketHandler.SendMessage(categories.ToJson());
+            }
+            else
+            {
+                JsonError error = new JsonError()
+                {
+                    type = "kitsu_categories_error",
+                    errormessage = "Failed to retrieve categories from kitsu.",
+                    errortype = "warning"
+                };
+
+                await WebSocketHandler.SendMessage(error.ToJson());
+            }
+
+        }
+
+        public async Task GetBotList()
+        {
+            JsonNiblBotList botlist = new JsonNiblBotList()
+            {
+                result = await NiblHandler.GetBotList()
+            };
+
+            if (botlist.result.Count > 0)
+            {
+
+                await WebSocketHandler.SendMessage(botlist.ToJson());
+            }
+            else
+            {
+                JsonError error = new JsonError()
+                {
+                    type = "nibl_botlist_error",
+                    errormessage = "Failed to retrieve categories from nibl.",
+                    errortype = "warning"
+                };
+
+                await WebSocketHandler.SendMessage(error.ToJson());
             }
 
         }

@@ -32,15 +32,17 @@ namespace LittleWeebLibrary.Handlers
         private readonly IKitsuHandler KitsuHandler;
         private readonly INiblHandler NiblHandler;
         private readonly IDataBaseHandler DataBaseHandler;
+        private readonly IAnimeRuleHandler AnimeRuleHandler;
         private readonly IDebugHandler DebugHandler;
         private readonly WeebFileNameParser WeebFileNameParser;
 
-        public AnimeProfileHandler(IKitsuHandler kitsuHandler, INiblHandler niblHandler, IDataBaseHandler dataBaseHandler, IDebugHandler debugHandler)
+        public AnimeProfileHandler(IKitsuHandler kitsuHandler, INiblHandler niblHandler, IDataBaseHandler dataBaseHandler, IAnimeRuleHandler animeRuleHandler, IDebugHandler debugHandler)
         {
             debugHandler.TraceMessage("Constructor Called.", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
             KitsuHandler = kitsuHandler;
             NiblHandler = niblHandler;
             DataBaseHandler = dataBaseHandler;
+            AnimeRuleHandler = animeRuleHandler;
             DebugHandler = debugHandler;
             WeebFileNameParser = new WeebFileNameParser();
         }
@@ -53,19 +55,15 @@ namespace LittleWeebLibrary.Handlers
 
 
             JsonKitsuAnimeInfo result = new JsonKitsuAnimeInfo();
-            JObject db_result = await DataBaseHandler.GetJObject("downloads", "anime_id", id);
-
+           
+            JObject db_result = await DataBaseHandler.GetJObject("anime", id);
             if (db_result.Count == 0)
             {
-                db_result = await DataBaseHandler.GetJObject("anime", "anime_id", id);
-                if (db_result.Count == 0)
-                {
-                    result = await KitsuHandler.GetFullAnime(id);
-                    result = await AnimeLatestEpisode(result);
+                result = await KitsuHandler.GetFullAnime(id);
+                result = await AnimeLatestEpisode(result);
 
-                    await DataBaseHandler.StoreJObject("anime", result.ToJObject());
-                    return result;
-                }
+                await DataBaseHandler.StoreJObject("anime", result.ToJObject(), id);
+                return result;
             }
 
             result = JsonConvert.DeserializeObject<JsonKitsuAnimeInfo>(db_result.ToString());
@@ -77,28 +75,20 @@ namespace LittleWeebLibrary.Handlers
 
         public async Task<JsonKitsuAnimeInfo> GetAnimeEpisodes(string id, int page, int pages = 1)
         {
-            JsonKitsuAnimeInfo result = new JsonKitsuAnimeInfo();
-            JObject db_result = await DataBaseHandler.GetJObject("downloads", "anime_id", id);
-
-            bool newDBEntry = false;
-            bool sourceDownload = true; 
+            JsonKitsuAnimeInfo result = null;
+            JObject db_result = await DataBaseHandler.GetJObject("anime", id);
+            
             if (db_result.Count == 0)
             {
-                sourceDownload = false;
-                db_result = await DataBaseHandler.GetJObject("anime", "anime_id", id);
-                if (db_result.Count == 0)
-                {
-                    result = await GetAnimeProfile(id);
-                    newDBEntry = true;
-                }
+                result = await GetAnimeProfile(id);
+            }
+            else
+            {
+                result = JsonConvert.DeserializeObject<JsonKitsuAnimeInfo>(db_result.ToString());
             }
 
-            result = JsonConvert.DeserializeObject<JsonKitsuAnimeInfo>(db_result.ToString());
                                  
             if (result != null) {
-
-                
-
                 JArray kitsuEpisodes = await KitsuHandler.GetEpisodes(id, page, pages);
                 result.anime_episodes = kitsuEpisodes;
 
@@ -149,24 +139,32 @@ namespace LittleWeebLibrary.Handlers
                     seasonNumber = -1;
                 }
 
+                //check rules
+                niblResults = await AnimeRuleHandler.FilterAnimeRules(niblResults, id);
+
                 //parse nibl search results
                 Dictionary<string, Dictionary<int, List<JObject>>> parsedNiblResults = await ParseNiblSearchResults(niblResults, previousEpisodeEnd, seasonNumber);
 
+                
                 //combine parsed nibl results with kistu episodes.
-                result.anime_episodes = await CombineAnimeEpisodesParsedNiblResults(result, parsedNiblResults);
 
-                if (newDBEntry)
+
+                   loadDataTasks = new Task[]
+                   {
+                        //compare results per episode from kitsu
+                        Task.Run(async () =>  result.anime_episodes = await CombineAnimeEpisodesParsedNiblResults(result, parsedNiblResults)),
+                
+                        //search nibl
+                        Task.Run(async () => result.anime_bot_sources = await BotListPerResults(parsedNiblResults))
+                   };
+                try
                 {
-                    await DataBaseHandler.StoreJObject("anime", result.ToJObject());
+                    await Task.WhenAll(loadDataTasks);
                 }
-                else if (sourceDownload)
+                catch (Exception ex)
                 {
-                    await DataBaseHandler.UpdateJObject("downloads", result.ToJObject(), "anime_id", id);
-                    await DataBaseHandler.UpdateJObject("anime", result.ToJObject(), "anime_id", id);
-                }
-                else
-                {
-                    await DataBaseHandler.UpdateJObject("anime", result.ToJObject(), "anime_id", id);
+                    DebugHandler.TraceMessage("FAILED RUNNING DATA GATHERING TASK (CombineAnimeEpisodesParsedNiblResults & BotListPerResults) ASYNC: " + ex.ToString(), DebugSource.TASK, DebugType.ERROR);
+                    // handle exception
                 }
             }
 
@@ -235,6 +233,7 @@ namespace LittleWeebLibrary.Handlers
             List<JObject> nonLatestAiringKitsu = new List<JObject>();
 
             JObject result = await NiblHandler.GetLatestFiles(botId.ToString());
+
             JArray array = result.Value<JArray>("packs");
             List<string> animeIdsAdded = new List<string>();
 
@@ -704,6 +703,29 @@ namespace LittleWeebLibrary.Handlers
 
         }
 
+        private async Task<JArray> BotListPerResults(Dictionary<string, Dictionary<int, List<JObject>>> parsed)
+        {
+
+            List<string> listWithBots = new List<string>();
+            await Task.Run(() =>
+            {
+                foreach (KeyValuePair<string, Dictionary<int, List<JObject>>> resolution in parsed)
+                {
+                    foreach (KeyValuePair<int, List<JObject>> episode in resolution.Value)
+                    {
+                        foreach (JObject pack in episode.Value)
+                        {
+                            if (!listWithBots.Contains(pack.Value<string>("BotName")))
+                            {
+                                listWithBots.Add(pack.Value<string>("BotName"));
+                            }
+                        }
+                    }
+                }
+            });           
+            return JArray.FromObject(listWithBots);
+        }
+
         private async Task<JArray> CombineAnimeEpisodesParsedNiblResults(JsonKitsuAnimeInfo result, Dictionary<string, Dictionary<int, List<JObject>>> parsedNiblResult)
         {
             DebugHandler.TraceMessage("CombineAnimeEpisodesParsedNiblResults called", DebugSource.TASK, DebugType.ENTRY_EXIT);
@@ -750,6 +772,12 @@ namespace LittleWeebLibrary.Handlers
         {
             DebugHandler.TraceMessage("LatestEpisode called", DebugSource.TASK, DebugType.ENTRY_EXIT);
 
+            if (result.anime_info["data"][0].Value<JObject>("attributes").ContainsKey("episodeCount"))
+            {
+                result.anime_total_episodes = result.anime_info["data"][0]["attributes"].Value<int>("episodeCount");
+                result.anime_total_episode_pages = (int)Math.Ceiling(((double)((result.anime_total_episodes) / (double)20) + 0.5));
+            }
+
             if (result.anime_info["data"][0]["attributes"].Value<string>("status") == "current")
             {
                 List<string> animeTitles = await ParseTitles(result);
@@ -792,8 +820,10 @@ namespace LittleWeebLibrary.Handlers
                 DebugHandler.TraceMessage("Nibl result latest episode done: " + resultNibl.ToString(), DebugSource.TASK, DebugType.INFO);
                 Dictionary<string, Dictionary<int, List<JObject>>> parsedNibl =  await ParseNiblSearchResults(resultNibl, previousEpisodeEnd, seasonNumber);
 
-                JObject files = new JObject();
-                files["files"] = JObject.FromObject(parsedNibl);
+                JObject files = new JObject
+                {
+                    ["files"] = JObject.FromObject(parsedNibl)
+                };
 
                 JObject latestKitsuEpisode = await KitsuHandler.GetEpisode(result.anime_id, currentLatestEpisode);
 

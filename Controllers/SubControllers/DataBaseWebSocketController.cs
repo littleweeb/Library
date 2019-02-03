@@ -9,20 +9,18 @@ using System;
 
 namespace LittleWeebLibrary.Controllers.SubControllers
 {
-    public class InfoApiWebSocketController : ISubWebSocketController
-    {
-
-       
+    public class DataBaseWebSocketController : ISubWebSocketController
+    {       
 
         private readonly IWebSocketHandler WebSocketHandler;
-        private readonly IInfoApiWebSocketService InfoApiWebSocketService;
+        private readonly IDataBaseWebSocketService DataBaseWebSocketService;
         private readonly IDebugHandler DebugHandler;
 
-        public InfoApiWebSocketController(IWebSocketHandler webSocketHandler, IInfoApiWebSocketService infoApiWebSocketService, IDebugHandler debugHandler)
+        public DataBaseWebSocketController(IWebSocketHandler webSocketHandler, IDataBaseWebSocketService dataBaseWebSocketService, IDebugHandler debugHandler)
         {
             debugHandler.TraceMessage("Constructor Called.", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
             DebugHandler = debugHandler;
-            InfoApiWebSocketService = infoApiWebSocketService;
+            DataBaseWebSocketService = dataBaseWebSocketService;
             WebSocketHandler = webSocketHandler;
         }
 
@@ -49,41 +47,20 @@ namespace LittleWeebLibrary.Controllers.SubControllers
                         {
                             switch (action)
                             {
-                                case "search_nibl":
-                                    InfoApiWebSocketService.GetFilesForAnime(extra);
+                                case "get_collection":
+                                    DataBaseWebSocketService.GetCollection(extra);
                                     break;
-                                case "get_anime_profile":
-                                    InfoApiWebSocketService.GetAnimeProfile(extra);
+                                case "get_document":
+                                    DataBaseWebSocketService.GetDocument(extra);
                                     break;
-                                case "get_anime_episodes":
-                                    InfoApiWebSocketService.GetAnimeEpisodes(extra);
+                                case "store_document":
+                                    DataBaseWebSocketService.StoreDocument(extra);
                                     break;
-                                case "get_currently_airing":
-                                    InfoApiWebSocketService.GetCurrentlyAiring(extra);
+                                case "delete_document":
+                                    DataBaseWebSocketService.DeleteDocument(extra);
                                     break;
-                                case "search_kitsu":
-                                    InfoApiWebSocketService.SearchKitsu(extra);
-                                    break;
-                                case "add_rule":
-                                    InfoApiWebSocketService.AddRule(extra);
-                                    break;
-                            }
-                        }
-                        else
-                        {
-                            switch (action)
-                            {
-                                case "get_currently_airing":
-                                    InfoApiWebSocketService.GetCurrentlyAiring();
-                                    break;
-                                case "get_categories_kitsu":
-                                    InfoApiWebSocketService.GetAllCategories();
-                                    break;
-                                case "get_genres_kitsu":
-                                    InfoApiWebSocketService.GetAllGenres();
-                                    break;
-                                case "get_botlist_nibl":
-                                    InfoApiWebSocketService.GetBotList();
+                                case "update_document":
+                                    DataBaseWebSocketService.UpdateDocument(extra);
                                     break;
                             }
                         }

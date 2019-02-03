@@ -55,8 +55,8 @@ namespace LittleWeebLibrary.Services
                     filePath.Replace("\\\\", "\\");
                 }
 
-                DownloadHandler.RemoveDownload(filePath);
-                FileHistoryHandler.RemoveFileFromFileHistory(filePath);
+                await DownloadHandler.RemoveDownload(filePath);
+                await FileHistoryHandler.RemoveFileFromFileHistory(filePath);
                 string result = FileHandler.DeleteFile(filePath);
                 await WebSocketHandler.SendMessage(result);
             }

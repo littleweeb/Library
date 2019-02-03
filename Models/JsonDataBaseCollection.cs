@@ -4,11 +4,10 @@ using System.Collections.Generic;
 
 namespace LittleWeebLibrary.Models
 {
-    class JsonDownloadDirectories
+    public class JsonDataBaseCollection
     {
-        public string type = "downloaded_directories"; //used for identifying json
-        public JsonFreeSpace freeSpace { get; set; } = new JsonFreeSpace();
-        public List<Jsonfullfilepath> directories { get; set; } = new List<Jsonfullfilepath>();
+        public string type { get; set; } = "database_collection";
+        public JArray result { get; set; } = new JArray();
 
         public string ToJson()
         {
@@ -33,4 +32,5 @@ namespace LittleWeebLibrary.Models
             return jobject;
         }
     }
+
 }

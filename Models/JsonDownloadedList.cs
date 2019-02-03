@@ -6,8 +6,14 @@ namespace LittleWeebLibrary.Models
 {
     public class JsonDownloadedList
     {
+#pragma warning disable IDE1006
         public string type { get; set; } = "download_history_list";
+        public string anime_id { get; set; } = string.Empty;
+        public string anime_title { get; set; } = string.Empty;
+        public JObject anime_cover { get; set; } = new JObject();
         public JArray downloadHistorylist { get; set; } = new JArray();
+#pragma warning restore IDE1006
+
         public string ToJson()
         {
             return JsonConvert.SerializeObject(this);

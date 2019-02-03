@@ -26,6 +26,7 @@ namespace LittleWeebLibrary
         private readonly IAnimeProfileHandler AnimeProfileHandler;
         private readonly IDebugHandler DebugHandler;
         private readonly IDataBaseHandler DataBaseHandler;
+        private readonly IAnimeRuleHandler AnimeRuleHandler;
 
         //services
         private readonly IDirectoryWebSocketService DirectoryWebSocketService;
@@ -35,6 +36,7 @@ namespace LittleWeebLibrary
         private readonly ISettingsWebSocketService SettingsWebSocketService;
         private readonly IInfoApiWebSocketService InfoApiWebSocketService;
         private readonly IVersionWebSocketService VersionWebSocketService;
+        private readonly IDataBaseWebSocketService DataBaseWebSocketService;
 
         //controllers
         private readonly ISubWebSocketController DirectoryWebSocketController;
@@ -44,6 +46,7 @@ namespace LittleWeebLibrary
         private readonly ISubWebSocketController SettingsWebSocketController;
         private readonly ISubWebSocketController InfoApiWebSocketController;
         private readonly ISubWebSocketController VersionWebSocketController;
+        private readonly ISubWebSocketController DataBaseWebSocketController;
 
         public StartUp()
         {
@@ -66,7 +69,8 @@ namespace LittleWeebLibrary
             DownloadHandler =       new DownloadHandler(IrcClientHandler, FileHistoryHandler, FileHandler, DebugHandler);
             KitsuHandler =          new KitsuHandler(DebugHandler);
             NiblHandler =           new NiblHandler(KitsuHandler, DebugHandler);
-            AnimeProfileHandler =   new AnimeProfileHandler(KitsuHandler, NiblHandler, DataBaseHandler, DebugHandler);
+            AnimeRuleHandler =      new AnimeRuleHandler(DataBaseHandler, DebugHandler);
+            AnimeProfileHandler =   new AnimeProfileHandler(KitsuHandler, NiblHandler, DataBaseHandler, AnimeRuleHandler, DebugHandler);
 
             //Services
             DirectoryWebSocketService = new DirectoryWebSocketService(WebSocketHandler, DirectoryHandler, DebugHandler);
@@ -74,8 +78,9 @@ namespace LittleWeebLibrary
             FileWebSocketService =      new FileWebSocketService(WebSocketHandler, FileHandler, FileHistoryHandler, DownloadHandler, DebugHandler);
             IrcWebSocketService =       new IrcWebSocketService(WebSocketHandler, IrcClientHandler, SettingsHandler, DebugHandler);
             SettingsWebSocketService =  new SettingsWebSocketService(WebSocketHandler, DirectoryHandler, DebugHandler);
-            InfoApiWebSocketService =   new InfoApiWebSocketService(WebSocketHandler, AnimeProfileHandler, NiblHandler, KitsuHandler, DebugHandler);
+            InfoApiWebSocketService =   new InfoApiWebSocketService(WebSocketHandler, AnimeProfileHandler, NiblHandler, KitsuHandler, AnimeRuleHandler, DebugHandler);
             VersionWebSocketService =   new VersionWebSocketService(WebSocketHandler, VersionHandler, DebugHandler);
+            DataBaseWebSocketService =  new DataBaseWebSocketService(WebSocketHandler, DataBaseHandler, DebugHandler);
 
 
             //Sub Controllers
@@ -86,6 +91,7 @@ namespace LittleWeebLibrary
             SettingsWebSocketController =   new SettingsWebSocketController(WebSocketHandler, SettingsWebSocketService, DebugHandler);
             InfoApiWebSocketController =    new InfoApiWebSocketController(WebSocketHandler, InfoApiWebSocketService, DebugHandler);
             VersionWebSocketController =    new VersionWebSocketController(WebSocketHandler, VersionWebSocketService, DebugHandler);
+            DataBaseWebSocketController =   new DataBaseWebSocketController(WebSocketHandler, DataBaseWebSocketService, DebugHandler);
 
             IBaseWebSocketController baseWebSocketController = new BaseWebSocketController(WebSocketHandler, DebugHandler);
             //start debugh handler registering all the handlers, services and controllers as IDebugEvent interface.
@@ -107,7 +113,8 @@ namespace LittleWeebLibrary
                 IrcWebSocketController,
                 SettingsWebSocketController,
                 InfoApiWebSocketController,
-                VersionWebSocketController
+                VersionWebSocketController,
+                DataBaseWebSocketController
             });
 
         }

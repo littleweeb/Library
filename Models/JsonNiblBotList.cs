@@ -4,10 +4,10 @@ using System.Collections.Generic;
 
 namespace LittleWeebLibrary.Models
 {
-    public class JsonDirectories
+    public class JsonNiblBotList
     {
-        public string type { get; set; } = "directories";
-        public List<JsonDirectory> directories = new List<JsonDirectory>();
+        public string type { get; set; } = "nibl_botlist";
+        public JObject result { get; set; } = new JObject();
 
         public string ToJson()
         {

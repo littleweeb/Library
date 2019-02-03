@@ -28,14 +28,13 @@ namespace LittleWeebLibrary.Handlers
 
     public class DebugHandler : IDebugHandler
     {
-        private string currentLog;
 
         private bool DebugWriteAble = true;
         private readonly string DebugFileName = "littleweeb.log";
         private string DebugPath = "";
         private readonly string[] DebugTypes = new string[] { "NOT DEFINED", "ENTRY/EXIT", "PARAMETERS", "INFO", "WARNING", "ERROR" };
         private readonly string[] DebugSourceTypes = new string[] { "CONSTRUCTOR", "METHOD", "EVENT", "TASK", "EXTERNAL(LIBRARY)", "NOT DEFINED" };
-        private readonly ConcurrentBag<string[]> MessageQueue;
+        private readonly List<string[]> MessageQueue;
         private LittleWeebSettings LittleWeebSettings;
         private bool stop = false;
 
@@ -54,14 +53,12 @@ namespace LittleWeebLibrary.Handlers
                 MaxDebugLogSize = 2000
             };
 
-            MessageQueue = new ConcurrentBag<string[]>();
+            MessageQueue = new List<string[]>();
 
             foreach (int level in LittleWeebSettings.DebugLevel)
             {
                 WriteTrace("DEBUG LEVEL: " + level);
             }
-
-            currentLog = "";        
 
             CreateFile();
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
@@ -80,16 +77,25 @@ namespace LittleWeebLibrary.Handlers
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Await.Warning", "CS4014:Await.Warning")]
         private async Task TraceWriter()
         {
+            string[] debugMessage = new string[5];
             while (!stop)
             {
 
                 try
                 {
-                    string[] debugMessage;
-                    bool succes = MessageQueue.TryTake(out debugMessage);
+                    bool succes = false;
+                    lock (MessageQueue)
+                    {
+                        if (MessageQueue.Count > 0)
+                        {
+                            debugMessage = MessageQueue[0];
+                            MessageQueue.RemoveAt(0);
+                            succes = true;
+                        }
+                    }
                     if (succes)
                     {
-                        DebugFileWriter(debugMessage);
+                       await DebugFileWriter(debugMessage);
                     }
 
                 }
@@ -117,12 +123,15 @@ namespace LittleWeebLibrary.Handlers
             if (LittleWeebSettings.DebugLevel.Contains((int)debugtype) && LittleWeebSettings.DebugType.Contains((int)sourcetype))
             {
                 string[] debugMessage = new string[] { message, memberName, sourceFilePath, sourceLineNumber.ToString(), DebugSourceTypes[(int)sourcetype], DebugTypes[(int)debugtype] };
-                MessageQueue.Add(debugMessage);
+                lock (MessageQueue)
+                {
+                    MessageQueue.Add(debugMessage);
+                }
             }
             
         }
 
-        private async void CreateFile()
+        private async Task CreateFile()
         {
             try
             {
@@ -144,7 +153,9 @@ namespace LittleWeebLibrary.Handlers
                         using (var streamWriter = new StreamWriter(fileStream))
                         {
                             await streamWriter.WriteLineAsync("Starting Log AT: " + DateTime.UtcNow + Environment.NewLine);
+                            streamWriter.Close();
                         }
+                        fileStream.Close();
                     }
 
                     WriteTrace("Debug file has been created.");
@@ -159,7 +170,7 @@ namespace LittleWeebLibrary.Handlers
             }
         }
 
-        private async void DebugFileWriter(string[] message)
+        private async Task DebugFileWriter(string[] message)
         {           
             try
             {
@@ -182,27 +193,46 @@ namespace LittleWeebLibrary.Handlers
 
 
                     WriteTrace(toWriteString);
-                    using (var fileStream = File.Open(Path.Combine(DebugPath, DebugFileName), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite))
+                    string currentLog = string.Empty;
+
+                    bool rewrite = false;
+                    using (FileStream fileStream = new FileStream(Path.Combine(DebugPath, DebugFileName), FileMode.OpenOrCreate, FileAccess.Read, FileShare.ReadWrite))
                     {
-                        using (var streamReader = new StreamReader(fileStream))
+                        using (StreamReader streamReader = new StreamReader(fileStream))
                         {
                             currentLog = streamReader.ReadToEnd();
                             if (currentLog.Split(new string[] { Environment.NewLine }, StringSplitOptions.None).Length > LittleWeebSettings.MaxDebugLogSize)
                             {
-                                currentLog = currentLog.Skip(toWriteString.Split(new string[] { Environment.NewLine }, StringSplitOptions.None).Length) + Environment.NewLine;
+                                currentLog = currentLog.Skip(toWriteString.Split(new string[] { Environment.NewLine }, StringSplitOptions.None).Length) + Environment.NewLine + toWriteString;
+                                rewrite = true;
                             }
-                        }                        
+                            else
+                            {
+                                currentLog = toWriteString;
+                            }
+                            streamReader.DiscardBufferedData();
+                        }
+                      
                     }
-                    using (var fileStream = File.Open(Path.Combine(DebugPath, DebugFileName), FileMode.Truncate, FileAccess.ReadWrite, FileShare.ReadWrite))
+
+                    FileMode mode = FileMode.Append;
+
+                    if (rewrite)
                     {
-
-                        using (var streamWriter = new StreamWriter(fileStream))
+                        mode = FileMode.Truncate;
+                    }
+                    using (FileStream fileStream = new FileStream(Path.Combine(DebugPath, DebugFileName), mode, FileAccess.Write, FileShare.ReadWrite))
+                    {
+                        using (StreamWriter streamWriter = new StreamWriter(fileStream))
                         {
-
-                            currentLog += toWriteString + Environment.NewLine;
-                            await streamWriter.WriteAsync(currentLog);
+                            streamWriter.Flush();
+                            streamWriter.Write(currentLog + Environment.NewLine);
+                            streamWriter.Flush();
+                            streamWriter.Dispose();
+                            currentLog = string.Empty;
                         }
                     }
+
 
                     await Task.Delay(1);
 

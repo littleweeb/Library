@@ -5,8 +5,10 @@ namespace LittleWeebLibrary.Models
 {
     public class JsonCurrentlyAiring
     {
+#pragma warning disable IDE1006
         public string type { get; set; } = "anime_info_currently_airing";
         public JObject result { get; set; } = new JObject();
+#pragma warning restore IDE1006
 
         public string ToJson()
         {

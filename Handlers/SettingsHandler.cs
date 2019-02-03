@@ -24,7 +24,6 @@ namespace LittleWeebLibrary.Handlers
 
         private readonly IDebugHandler DebugHandler;
 
-        private readonly string BasePath;
         private readonly string SettingsPath;
 
         public SettingsHandler(IDebugHandler debugHandler)

@@ -1,18 +1,20 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Collections.Generic;
 
 namespace LittleWeebLibrary.Models
 {
-    class JsonDirectory
+    public class JsonDirectory
     {
-        public string type = "directory";
-        public string path { get; set; } = string.Empty;
+        public string type { get; set; } = "directory";
         public string dirname { get; set; } = string.Empty;
+        public string path { get; set; } = string.Empty;
 
         public string ToJson()
         {
             return JsonConvert.SerializeObject(this);
         }
+
         public override string ToString()
         {
             JObject jobject = ToJObject();
@@ -31,4 +33,5 @@ namespace LittleWeebLibrary.Models
             return jobject;
         }
     }
+
 }

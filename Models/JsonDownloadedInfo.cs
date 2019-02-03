@@ -6,6 +6,7 @@ namespace LittleWeebLibrary.Models
 {
     public class JsonDownloadedInfo
     {
+#pragma warning disable IDE1006
         public string type = "downloaded_file";
         public string anime_id { get; set; } = string.Empty;
         public string anime_name { get; set; } = string.Empty;
@@ -17,6 +18,7 @@ namespace LittleWeebLibrary.Models
         public string filename { get; set; } = string.Empty;
         public string filesize { get; set; } = string.Empty;
         public string fullfilepath { get; set; } = string.Empty;
+#pragma warning restore IDE1006
 
         public string ToJson()
         {

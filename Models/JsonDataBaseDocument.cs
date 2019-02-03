@@ -4,13 +4,10 @@ using System.Collections.Generic;
 
 namespace LittleWeebLibrary.Models
 {
-    class Jsonfullfilepath
+    public class JsonDataBaseDocument
     {
-        public string type = "downloaded_files"; //used for identifying json
-        public string directory { get; set; } = "/";
-
-        public JsonAnimeInfo animeinfo { get; set; } = new JsonAnimeInfo();
-        public List<JsonDownloadInfo> alreadyDownloaded { get; set; } = new List<JsonDownloadInfo>();
+        public string type { get; set; } = "database_document";
+        public JObject result { get; set; } = new JObject();
 
         public string ToJson()
         {
@@ -35,4 +32,5 @@ namespace LittleWeebLibrary.Models
             return jobject;
         }
     }
+
 }

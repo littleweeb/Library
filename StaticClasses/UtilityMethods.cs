@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace LittleWeebLibrary.StaticClasses
 {
@@ -72,70 +73,90 @@ namespace LittleWeebLibrary.StaticClasses
             }
         }
 
-        public static byte[] Zip(string str)
+        public static async Task <byte[]> Zip(string str)
         {
-            var bytes = Encoding.UTF8.GetBytes(str);
+            byte[] bytes = Encoding.UTF8.GetBytes(str);
 
-            using (var msi = new MemoryStream(bytes))
-            using (var mso = new MemoryStream())
-            {
-                using (var gs = new GZipStream(mso, CompressionMode.Compress))
+            await Task.Run(() => {
+                using (var msi = new MemoryStream(bytes))
+                using (var mso = new MemoryStream())
                 {
-                    //msi.CopyTo(gs);
-                    CopyTo(msi, gs);
+                    using (var gs = new GZipStream(mso, CompressionMode.Compress))
+                    {
+                        //msi.CopyTo(gs);
+                        CopyTo(msi, gs);
+                    }
+
+                    bytes = mso.ToArray();
                 }
 
-                return mso.ToArray();
-            }
+            });
+          
+            return bytes;
         }
 
-        public static string Unzip(byte[] bytes)
+        public static async Task<string> Unzip(byte[] bytes)
         {
-            using (var msi = new MemoryStream(bytes))
-            using (var mso = new MemoryStream())
+            string toreturn = string.Empty;
+            await Task.Run(() =>
             {
-                using (var gs = new GZipStream(msi, CompressionMode.Decompress))
+                using (var msi = new MemoryStream(bytes))
+                using (var mso = new MemoryStream())
                 {
-                    //gs.CopyTo(mso);
-                    CopyTo(gs, mso);
-                }
+                    using (var gs = new GZipStream(msi, CompressionMode.Decompress))
+                    {
+                        //gs.CopyTo(mso);
+                        CopyTo(gs, mso);
+                    }
 
-                return Encoding.UTF8.GetString(mso.ToArray());
-            }
+                    toreturn = Encoding.UTF8.GetString(mso.ToArray());
+                }
+            });
+
+            return toreturn;
         }
 
 
-        public static bool WriteBinaryFile(string path, byte[] value)
+        public static async Task<bool> WriteBinaryFile(string path, byte[] value)
         {
-            try
+            bool toreturn = false;
+            await Task.Run(() =>
             {
-                using (BinaryWriter writer = new BinaryWriter(File.Open(path, FileMode.OpenOrCreate, System.IO.FileAccess.ReadWrite)))
+                try
                 {
-                    writer.Write(value);
+                    using (BinaryWriter writer = new BinaryWriter(File.Open(path, FileMode.OpenOrCreate, System.IO.FileAccess.ReadWrite)))
+                    {
+                        writer.Write(value);
+                    }
+                    toreturn = true;
                 }
-                return true;
-            }
-            catch 
-            {
-                return false;
-            }
+                catch
+                {
+                    toreturn = false;
+                }
+            });
+            return toreturn;
         }
 
-        public static byte[] ReadBinaryFile(string path)
+        public static async Task<byte[]> ReadBinaryFile(string path)
         {
-            byte[] value = null;
-            using (BinaryReader reader = new BinaryReader(File.Open(path, FileMode.OpenOrCreate, System.IO.FileAccess.ReadWrite)))
+            byte[] value = new byte[0];
+            await Task.Run(() =>
             {
-                const int bufferSize = 4096;
-                using (var ms = new MemoryStream())
+                using (BinaryReader reader = new BinaryReader(File.Open(path, FileMode.OpenOrCreate, System.IO.FileAccess.ReadWrite)))
                 {
-                    byte[] buffer = new byte[bufferSize];
-                    int count;
-                    while ((count = reader.Read(buffer, 0, buffer.Length)) != 0)
-                        ms.Write(buffer, 0, count);
-                    return ms.ToArray();
+                    const int bufferSize = 4096;
+                    using (var ms = new MemoryStream())
+                    {
+                        byte[] buffer = new byte[bufferSize];
+                        int count;
+                        while ((count = reader.Read(buffer, 0, buffer.Length)) != 0)
+                            ms.Write(buffer, 0, count);
+                        value = ms.ToArray();
+                    }
                 }
-            }
+            });
+            return value;
         }
 
 

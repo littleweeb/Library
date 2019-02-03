@@ -102,7 +102,7 @@ namespace LittleWeebLibrary.Handlers
                         info.Add("BotName",  bots.Value<string>(pack.Value<string>("botId")));
                         info.Add("PackNumber", pack.Value<string>("number"));
                         info.Add("FullFileName", pack.Value<string>("name"));
-                        info.Add("FileSize", pack.Value<string>("sizekbites"));
+                        info.Add("FileSize", pack.Value<int>("sizekbits").ToString());
                         listWithPacks.Add(info);
                     }
                 }
@@ -147,7 +147,7 @@ namespace LittleWeebLibrary.Handlers
                         info.Add("BotName", bots.Value<string>(pack.Value<string>("botId")));
                         info.Add("PackNumber", pack.Value<string>("number"));
                         info.Add("FullFileName", pack.Value<string>("name"));
-                        info.Add("FileSize", pack.Value<string>("sizekbites"));
+                        info.Add("FileSize", pack.Value<int>("sizekbits").ToString());
                         listWithPacks.Add(info);
                     }
                 }
@@ -196,7 +196,7 @@ namespace LittleWeebLibrary.Handlers
                 info.Add("BotName", bots.Value<string>(pack.Value<string>("botId")));
                 info.Add("PackNumber", pack.Value<string>("number"));
                 info.Add("FullFileName", pack.Value<string>("name"));
-                info.Add("FileSize", pack.Value<string>("sizekbites"));
+                info.Add("FileSize", pack.Value<int>("sizekbits").ToString());
                 listWithPacks.Add(info);
             }
 

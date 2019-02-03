@@ -51,7 +51,7 @@ namespace LittleWeebLibrary.Handlers
 
                 if (response.IsSuccessStatusCode)
                 {
-                    DebugHandler.TraceMessage("Succesfully retreived releases!", DebugSource.TASK, DebugType.INFO);
+                    DebugHandler.TraceMessage("Succesfully retrieved releases!", DebugSource.TASK, DebugType.INFO);
 
                     string json = await response.Content.ReadAsStringAsync(); 
 
@@ -146,7 +146,7 @@ namespace LittleWeebLibrary.Handlers
 
                 if (response.IsSuccessStatusCode)
                 {
-                    DebugHandler.TraceMessage("Succesfully retreived releases!", DebugSource.TASK, DebugType.INFO);
+                    DebugHandler.TraceMessage("Succesfully retrieved releases!", DebugSource.TASK, DebugType.INFO);
 
                     string json = await response.Content.ReadAsStringAsync();
 

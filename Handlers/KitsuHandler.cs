@@ -22,13 +22,14 @@ namespace LittleWeebLibrary.Handlers
         Task<JObject> GetEpisode(string animeId, int episodeNumber);
         Task<JArray> GetRelations(string animeId);
         Task<JArray> GetGenres(string animeId);
+        Task<JArray> GetAllGenres();
+        Task<JArray> GetAllCategories();
         Task<JArray> GetCategories(string animeId);
         Task<JArray> GetCurrentlyAiring();
     }
 
     public class KitsuHandler :  IKitsuHandler
-    {
-       
+    {       
 
         private readonly IDebugHandler DebugHandler;
 
@@ -57,8 +58,13 @@ namespace LittleWeebLibrary.Handlers
                 query += "&filter[" + attributeValue.Key + "]=" + attributeValue.Value;
             }
 
+            if (search != string.Empty)
+            {
+                query = "&filter[text]=" + search + query;
+            }
 
-            string searchresult = await Get("anime?filter[text]=" + search + query + "&fields[anime]=canonicalTitle,averageRating,subtype,status,coverImage,abbreviatedTitles,titles&page[limit]=20&page[offset]=0");
+
+            string searchresult = await Get("anime?" + query.Substring(1) + "&fields[anime]=canonicalTitle,averageRating,subtype,status,coverImage,posterImage,abbreviatedTitles,titles&page[limit]=20&page[offset]=0");
 
             if (searchresult.Contains("failed:"))
             {
@@ -82,7 +88,7 @@ namespace LittleWeebLibrary.Handlers
             array.Merge(searchresultjobject.Value<JArray>("data"));
             for (int i = 1; i < pages; i++) {
 
-                searchresult = await Get("anime?filter[text]=" + search +  query + "&fields[anime]=canonicalTitle,averageRating,subtype,status,coverImage,abbreviatedTitles,titles&page[limit]=20&page[offset]=" + ((page + i - 1) * 20).ToString());
+                searchresult = await Get("anime?" + query.Substring(1) + "&fields[anime]=canonicalTitle,averageRating,subtype,status,coverImage,posterImage,abbreviatedTitles,titles&page[limit]=20&page[offset]=" + ((page + i - 1) * 20).ToString());
 
                 if (searchresult.Contains("failed:"))
                 {
@@ -213,7 +219,7 @@ namespace LittleWeebLibrary.Handlers
             DebugHandler.TraceMessage("GetRelations Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
             DebugHandler.TraceMessage("Anime ID: " + animeId, DebugSource.TASK, DebugType.PARAMETERS);
             
-            string relations = await Get("media-relationships?filter[source_id]=" + animeId + "&filter[source_type]=Anime&include=destination&sort=role");
+            string relations = await Get("media-relationships?filter[source_id]=" + animeId + "&filter[source_type]=Anime&fields[anime]=canonicalTitle,averageRating,subtype,status,coverImage,posterImage,abbreviatedTitles,titles&include=destination&sort=role");
 
             if (relations.Contains("failed:"))
             {
@@ -255,7 +261,7 @@ namespace LittleWeebLibrary.Handlers
 
             List<Task<string>> tasks = new List<Task<string>>();
 
-            string airing = await Get("anime?filter[status]=current&fields[anime]=canonicalTitle,averageRating,subtype,status,coverImage,abbreviatedTitles,titles&page[limit]=20&page[offset]=" + (0 * 20).ToString());
+            string airing = await Get("anime?filter[status]=current&fields[anime]=canonicalTitle,averageRating,subtype,status,coverImage,posterImage,abbreviatedTitles,titles&page[limit]=20&page[offset]=" + (0 * 20).ToString());
             JObject airingresultjobject = JObject.Parse(airing);
 
             array.Merge(airingresultjobject.Value<JArray>("data"));
@@ -271,7 +277,7 @@ namespace LittleWeebLibrary.Handlers
                 }
 
 
-                tasks.Add(Get("anime?filter[status]=current&fields[anime]=canonicalTitle,averageRating,subtype,status,coverImage,abbreviatedTitles,titles&page[limit]=20&page[offset]=" + (i * 20).ToString()));
+                tasks.Add(Get("anime?filter[status]=current&fields[anime]=canonicalTitle,averageRating,subtype,status,coverImage,posterImage,abbreviatedTitles,titles&page[limit]=20&page[offset]=" + (i * 20).ToString()));
 
 
                 if (i >= totalPages)
@@ -376,6 +382,105 @@ namespace LittleWeebLibrary.Handlers
 
                 return searchresultjobject["data"].Value<JObject>(0);
             }
+        }
+
+        public async Task<JArray> GetAllGenres()
+        {
+            DebugHandler.TraceMessage("GetAllGenres Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
+
+            JArray array = new JArray();
+
+            int totalPages = 0;
+
+            List<Task<string>> tasks = new List<Task<string>>();
+
+            string genres = await Get("genres?fields[genres]=name&page[limit]=20&page[offset]=" + (0 * 20).ToString());
+            JObject genresresultjobject = JObject.Parse(genres);
+
+            array.Merge(genresresultjobject.Value<JArray>("data"));
+
+
+            totalPages = (int)(genresresultjobject["meta"].Value<int>("count") / 20 - 0.5);
+
+            for (int i = 1; i < totalPages; i++)
+            {
+                if (genres.Contains("failed:"))
+                {
+                    break;
+                }
+
+                tasks.Add(Get("genres?fields[genres]=name&page[limit]=20&page[offset]=" + (i * 20).ToString()));
+                
+               
+            }
+
+            Task.WaitAll(tasks.ToArray());
+
+            foreach (Task<string> task in tasks)
+            {
+                genresresultjobject = JObject.Parse(task.Result);
+
+                try
+                {
+                    array.Merge(genresresultjobject.Value<JArray>("data"));
+                }
+                catch (Exception e)
+                {
+                    DebugHandler.TraceMessage("Failed merging data: " + e.ToString(), DebugSource.TASK, DebugType.WARNING);
+                }
+                task.Dispose();
+            }
+
+            return array;
+        }
+
+        public async Task<JArray> GetAllCategories()
+        {
+            DebugHandler.TraceMessage("GetAllCategories Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
+
+            JArray array = new JArray();
+
+            int totalPages = 0;
+
+            List<Task<string>> tasks = new List<Task<string>>();
+
+            string categories = await Get("categories?fields[categories]=title&page[limit]=20&page[offset]=" + (0 * 20).ToString());
+            JObject categoriesresultjobject = JObject.Parse(categories);
+
+            array.Merge(categoriesresultjobject.Value<JArray>("data"));
+
+
+            totalPages = (int)(categoriesresultjobject["meta"].Value<int>("count") / 20 - 0.5);
+
+            for (int i = 1; i < totalPages; i++)
+            {
+                if (categories.Contains("failed:"))
+                {
+                    break;
+                }
+
+                tasks.Add(Get("categories?fields[categories]=title&page[limit]=20&page[offset]=" + (i * 20).ToString()));
+
+            }
+
+            Task.WaitAll(tasks.ToArray());
+
+            foreach (Task<string> task in tasks)
+            {
+                categoriesresultjobject = JObject.Parse(task.Result);
+
+                try
+                {
+                    array.Merge(categoriesresultjobject.Value<JArray>("data"));
+                }
+                catch (Exception e)
+                {
+                    DebugHandler.TraceMessage("Failed merging data: " + e.ToString(), DebugSource.TASK, DebugType.WARNING);
+                }
+                task.Dispose();
+            }
+
+            return array;
         }
     }
 }
