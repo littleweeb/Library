@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 
 namespace LittleWeebLibrary.Models
@@ -8,6 +9,7 @@ namespace LittleWeebLibrary.Models
     {
         public string type { get; set; } = "download_queue";
         public List<JsonDownloadInfo> downloadQueue { get; set; } = new List<JsonDownloadInfo>();
+        public string updated { get; set; } = DateTime.Now.Millisecond.ToString();
         public string ToJson()
         {
             return JsonConvert.SerializeObject(this);

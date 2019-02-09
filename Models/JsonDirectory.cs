@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 
 namespace LittleWeebLibrary.Models
@@ -9,6 +10,7 @@ namespace LittleWeebLibrary.Models
         public string type { get; set; } = "directory";
         public string dirname { get; set; } = string.Empty;
         public string path { get; set; } = string.Empty;
+        public string updated { get; set; } = DateTime.Now.Millisecond.ToString();
 
         public string ToJson()
         {

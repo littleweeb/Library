@@ -15,7 +15,7 @@ namespace LittleWeebLibrary.Handlers
     public interface IKitsuHandler
     {
 
-        Task<JsonKitsuAnimeInfo> GetFullAnime(string animeId);
+        Task<JsonKitsuAnimeInfo> GetFullAnime(string animeId, int amountEpisodesPerPage = 26);
         Task<JsonKistuSearchResult> SearchAnime(string search, Dictionary<string,string> queryList, int page = 0, int pages = -1);
         Task<JObject> GetAnime(string animeId);
         Task<JArray> GetEpisodes(string animeId, int page = 0, int pages = -1, int results = 20, string order = "ASC");
@@ -191,21 +191,70 @@ namespace LittleWeebLibrary.Handlers
 
         }
 
-        public async Task<JsonKitsuAnimeInfo> GetFullAnime(string animeId)
+        public async Task<JsonKitsuAnimeInfo> GetFullAnime(string animeId, int amountEpisodesPerPage = 26)
         {
             DebugHandler.TraceMessage("GetFullAnime Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
             DebugHandler.TraceMessage("Anime ID: " + animeId, DebugSource.TASK, DebugType.PARAMETERS);
 
-            string anime = await Get("episodes?filter[mediaType]=Anime&filter[media_id]=" + animeId);
+            string anime = await Get("anime/" + animeId + "?include=episodes,genres,categories");
 
+            JObject result = JObject.Parse(anime);
+            JArray included = result.Value<JArray>("included");
+
+            JArray genres = new JArray();
+            JArray categories = new JArray();
+            JArray episodes = new JArray();
+            JArray mediaRelationships = new JArray();
+
+            foreach (JObject include in included)
+            {
+                switch(include.Value<string>("type"))
+                {
+                    case "genres":
+                        genres.Add(include);
+                        break;
+                    case "categories":
+                        categories.Add(include);
+                        break;
+                    case "episodes":
+                        episodes.Add(include);
+                        break;
+                }
+            }
+
+            mediaRelationships = await GetRelations(animeId);
+
+            JArray episodePages = new JArray();
+
+            JArray page = new JArray();
+
+            int count = 0;
+            foreach (JObject episode in episodes)
+            {
+                if ((count % amountEpisodesPerPage) == 0 && count != 0)
+                {
+                    episodePages.Add(page);
+                    page = new JArray();
+                }
+                page.Add(episode);
+                count++;
+            }
+
+            if (episodes.Count < amountEpisodesPerPage)
+            {
+                episodePages.Add(page);
+            }
 
             JsonKitsuAnimeInfo jsonKitsuAnimeInfo = new JsonKitsuAnimeInfo
             {
                 anime_id = animeId,
-                anime_info = await GetAnime(animeId),
-                anime_relations = await GetRelations(animeId),
-                anime_categories = await GetCategories(animeId),
-                anime_genres = await GetGenres(animeId)
+                anime_episodes_per_page = amountEpisodesPerPage,
+                anime_total_episode_pages = episodePages.Count,
+                anime_info = result.Value<JObject>("data"),
+                anime_relations = mediaRelationships,
+                anime_categories = categories,
+                anime_genres = genres,
+                anime_episodes = episodePages
             };
             
            //DebugHandler.TraceMessage("Finished getting anime profile, making values 'episodeCount' & 'total episode pages global': " + jsonKitsuAnimeInfo.anime_info["data"][0]["attributes"].Value<int>("episodeCount"), DebugSource.TASK, DebugType.PARAMETERS);            
@@ -219,7 +268,7 @@ namespace LittleWeebLibrary.Handlers
             DebugHandler.TraceMessage("GetRelations Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
             DebugHandler.TraceMessage("Anime ID: " + animeId, DebugSource.TASK, DebugType.PARAMETERS);
             
-            string relations = await Get("media-relationships?filter[source_id]=" + animeId + "&filter[source_type]=Anime&fields[anime]=canonicalTitle,averageRating,subtype,status,coverImage,posterImage,abbreviatedTitles,titles&include=destination&sort=role");
+            string relations = await Get("media-relationships?filter[source_id]=" + animeId + "&filter[source_type]=Anime&fields[anime]=episodeCount,canonicalTitle,averageRating,subtype,status,coverImage,posterImage,abbreviatedTitles,titles&include=destination&sort=role");
 
             if (relations.Contains("failed:"))
             {
@@ -261,7 +310,7 @@ namespace LittleWeebLibrary.Handlers
 
             List<Task<string>> tasks = new List<Task<string>>();
 
-            string airing = await Get("anime?filter[status]=current&fields[anime]=canonicalTitle,averageRating,subtype,status,coverImage,posterImage,abbreviatedTitles,titles&page[limit]=20&page[offset]=" + (0 * 20).ToString());
+            string airing = await Get("anime?filter[status]=current&fields[anime]=canonicalTitle,averageRating,subtype,status,coverImage,posterImage,abbreviatedTitles,titles&sort=-averageRating&page[limit]=20&page[offset]=" + (0 * 20).ToString());
             JObject airingresultjobject = JObject.Parse(airing);
 
             array.Merge(airingresultjobject.Value<JArray>("data"));
@@ -343,31 +392,7 @@ namespace LittleWeebLibrary.Handlers
         }
 
 
-        private async Task<JObject> GetEpisodesFromKitsu(string animeId, int page, int offset)
-        {
-            string episodes = await Get("episodes?filter[mediaType]=Anime&filter[media_id]=" + animeId + "&page[limit]=20&page[offset]=" + ((page + offset) * 20).ToString() + "&sort=number");
-            return JObject.Parse(episodes);
-        }
-
-        private async Task<string> Get(string url)
-        {
-            DebugHandler.TraceMessage("Get called", DebugSource.TASK, DebugType.ENTRY_EXIT);
-            DebugHandler.TraceMessage("URL: " + url, DebugSource.TASK, DebugType.PARAMETERS);
-            using (HttpClient client = new HttpClient())
-            {
-                HttpResponseMessage response = await client.GetAsync("https://kitsu.io/api/edge/" + url);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    return await response.Content.ReadAsStringAsync();
-                }
-                else
-                {
-                    return "failed: " + response.StatusCode.ToString();
-                }
-            }
-
-        }
+      
 
         public async Task<JObject> GetEpisode(string animeId, int episodeNumber)
         {
@@ -481,6 +506,32 @@ namespace LittleWeebLibrary.Handlers
             }
 
             return array;
+        }
+
+        private async Task<JObject> GetEpisodesFromKitsu(string animeId, int page, int offset)
+        {
+            string episodes = await Get("episodes?filter[mediaType]=Anime&filter[media_id]=" + animeId + "&page[limit]=20&page[offset]=" + ((page + offset) * 20).ToString() + "&sort=number");
+            return JObject.Parse(episodes);
+        }
+
+        private async Task<string> Get(string url)
+        {
+            DebugHandler.TraceMessage("Get called", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage("URL: " + url, DebugSource.TASK, DebugType.PARAMETERS);
+            using (HttpClient client = new HttpClient())
+            {
+                HttpResponseMessage response = await client.GetAsync("https://kitsu.io/api/edge/" + url);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    return await response.Content.ReadAsStringAsync();
+                }
+                else
+                {
+                    return "failed: " + response.StatusCode.ToString();
+                }
+            }
+
         }
     }
 }

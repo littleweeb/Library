@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 
 namespace LittleWeebLibrary.Models
@@ -9,6 +10,7 @@ namespace LittleWeebLibrary.Models
 #pragma warning disable IDE1006
         public string type { get; set; } = "kitsu_anime_info";
         public string anime_id { get; set; } = string.Empty;
+        public int anime_episodes_per_page { get; set; } = 0;
         public int anime_total_episodes { get; set; } = 0;
         public int anime_total_episode_pages { get; set; } = 0;
         public JObject anime_info { get; set; } = new JObject();
@@ -19,6 +21,8 @@ namespace LittleWeebLibrary.Models
         public JArray anime_genres { get; set; } = new JArray();
         public JObject anime_rules { get; set; } = new JObject();
         public JArray anime_bot_sources { get; set; } = new JArray();
+        public bool anime_stored { get; set; } = true;
+        public string updated { get; set; } = DateTime.Now.Millisecond.ToString();
 #pragma warning restore IDE1006
 
         public string ToJson()

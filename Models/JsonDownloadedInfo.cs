@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using System.Collections.Generic;
+using System;
 
 namespace LittleWeebLibrary.Models
 {
@@ -18,6 +18,7 @@ namespace LittleWeebLibrary.Models
         public string filename { get; set; } = string.Empty;
         public string filesize { get; set; } = string.Empty;
         public string fullfilepath { get; set; } = string.Empty;
+        public string updated { get; set; } = DateTime.Now.Millisecond.ToString();
 #pragma warning restore IDE1006
 
         public string ToJson()

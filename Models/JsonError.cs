@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System;
 
 namespace LittleWeebLibrary.Models
 {
@@ -9,6 +10,7 @@ namespace LittleWeebLibrary.Models
         public string errortype { get; set; } = string.Empty;
         public string errormessage { get; set; } = string.Empty;
         public string exception { get; set; } = string.Empty;
+        public string updated { get; set; } = DateTime.Now.Millisecond.ToString();
 
         public string ToJson()
         {

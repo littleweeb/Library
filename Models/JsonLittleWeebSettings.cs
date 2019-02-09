@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 
 namespace LittleWeebLibrary.Models
@@ -15,6 +16,7 @@ namespace LittleWeebLibrary.Models
         public int maxdebuglogsize { get; set; } = -1;
         public List<int> debuglevel { get; set; } = new List<int>();
         public List<int> debugtype { get; set; } = new List<int>();
+        public string updated { get; set; } = DateTime.Now.Millisecond.ToString();
 
 
         public string ToJson()

@@ -106,11 +106,11 @@ namespace LittleWeebLibrary.Handlers
 
                 if (MessageQueue.Count != 0)
                 {
-                    await Task.Delay(10);
+                    await Task.Delay(1);
                 }
                 else
                 {
-                    await Task.Delay(500);
+                    await Task.Delay(10);
                 }
             }
         }

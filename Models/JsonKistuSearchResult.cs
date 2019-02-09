@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System;
 
 namespace LittleWeebLibrary.Models
 {
@@ -7,6 +8,7 @@ namespace LittleWeebLibrary.Models
     {
         public string type { get; set; } = "kitsu_search_result";
         public JArray result { get; set; } = new JArray();
+        public string updated { get; set; } = DateTime.Now.Millisecond.ToString();
 
         public string ToJson()
         {

@@ -126,8 +126,7 @@ namespace LittleWeebLibrary.Handlers
             }
 
 
-
-            DebugHandler.TraceMessage("Result: " + toReturn.ToString(), DebugSource.TASK, DebugType.INFO);
+            
 
             return toReturn;
         }
@@ -181,8 +180,7 @@ namespace LittleWeebLibrary.Handlers
             }
 
 
-
-            DebugHandler.TraceMessage("Result: " + toReturn.ToString(), DebugSource.TASK, DebugType.INFO);
+            
 
             return toReturn;
         }
@@ -229,8 +227,7 @@ namespace LittleWeebLibrary.Handlers
                 }
             });
            
-
-            DebugHandler.TraceMessage("Result: " + toReturn.ToString(), DebugSource.TASK, DebugType.INFO);
+            
 
             return toReturn;
         }
@@ -284,8 +281,6 @@ namespace LittleWeebLibrary.Handlers
                 }
             }
 
-            DebugHandler.TraceMessage("Result: " + toReturn.ToString(), DebugSource.TASK, DebugType.INFO);
-
             return toReturn;
         }
 
@@ -330,7 +325,6 @@ namespace LittleWeebLibrary.Handlers
                 DebugHandler.TraceMessage("Failed to write file: " + pathparsing + ", error: " + e.ToString(), DebugSource.TASK, DebugType.ERROR);
             }          
             
-            DebugHandler.TraceMessage("Result: " + toReturn.ToString(), DebugSource.TASK, DebugType.INFO);
 
             return toReturn;
         }

@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System;
 
 namespace LittleWeebLibrary.Models
 {
@@ -9,6 +10,7 @@ namespace LittleWeebLibrary.Models
         public long freespacebytes { get; set; } = -1;
         public long freespacekbytes { get; set; } = -1;
         public long freespacembytes { get; set; } = -1;
+        public string updated { get; set; } = DateTime.Now.Millisecond.ToString();
 
         public string ToJson()
         {

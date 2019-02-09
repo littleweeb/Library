@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System;
 
 namespace LittleWeebLibrary.Models
 {
@@ -21,6 +22,7 @@ namespace LittleWeebLibrary.Models
         public int downloadIndex { get; set; } = -1;
         public string fullfilepath{ get; set; } = string.Empty;
         public string downloadDirectory { get; set; } = string.Empty;
+        public string updated { get; set; } = DateTime.Now.Millisecond.ToString();
 
         public string ToJson()
         {

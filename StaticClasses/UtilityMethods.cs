@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace LittleWeebLibrary.StaticClasses
@@ -17,6 +18,12 @@ namespace LittleWeebLibrary.StaticClasses
             OsX,
             Linux,
             Unknown
+        }
+
+        public static string RemoveSpecialCharacters(string str)
+        {
+           
+            return Regex.Replace(str, "[^0-9A-Za-z ,]", " ");
         }
 
         public static string GenerateUsername(int requestedLength)
@@ -271,6 +278,8 @@ namespace LittleWeebLibrary.StaticClasses
             int stepsToSame = LevenshteinDistance(source, target);
             return (1.0 - ((double)stepsToSame / (double)Math.Max(source.Length, target.Length)));
         }
+
+        
 
     }
 }

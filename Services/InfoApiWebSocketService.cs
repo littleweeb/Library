@@ -172,10 +172,16 @@ namespace LittleWeebLibrary.Services
         {
             DebugHandler.TraceMessage("GetAnimeEpisodes Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
             string id = query.Value<string>("id");
-            int page = query.Value<int>("page");
-            int pages = query.Value<int>("pages");
-
-            JsonKitsuAnimeInfo info = await AnimeProfileHandler.GetAnimeEpisodes(id, page, pages);
+            JsonKitsuAnimeInfo info = new JsonKitsuAnimeInfo();
+            if (query.ContainsKey("amount_per_page"))
+            {
+                int amountPerPage = query.Value<int>("amount_per_page");
+                info = await AnimeProfileHandler.GetAnimeEpisodes(id, amountPerPage);
+            }
+            else
+            {
+                info = await AnimeProfileHandler.GetAnimeEpisodes(id);
+            }
 
             await WebSocketHandler.SendMessage(info.ToJson());
         }

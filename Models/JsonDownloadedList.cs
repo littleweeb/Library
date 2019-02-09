@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using System.Collections.Generic;
+using System;
 
 namespace LittleWeebLibrary.Models
 {
@@ -12,6 +12,7 @@ namespace LittleWeebLibrary.Models
         public string anime_title { get; set; } = string.Empty;
         public JObject anime_cover { get; set; } = new JObject();
         public JArray downloadHistorylist { get; set; } = new JArray();
+        public string updated { get; set; } = DateTime.Now.Millisecond.ToString();
 #pragma warning restore IDE1006
 
         public string ToJson()

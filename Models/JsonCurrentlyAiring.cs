@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System;
 
 namespace LittleWeebLibrary.Models
 {
@@ -8,6 +9,7 @@ namespace LittleWeebLibrary.Models
 #pragma warning disable IDE1006
         public string type { get; set; } = "anime_info_currently_airing";
         public JObject result { get; set; } = new JObject();
+        public string updated { get; set; } = DateTime.Now.Millisecond.ToString();
 #pragma warning restore IDE1006
 
         public string ToJson()

@@ -53,6 +53,7 @@ namespace LittleWeebLibrary
             //handlers
 
             DebugHandler =          new DebugHandler();
+
             SettingsHandler =       new SettingsHandler(DebugHandler);
 
             DebugHandler.SetSettings(SettingsHandler);

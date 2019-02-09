@@ -103,7 +103,7 @@ namespace LittleWeebLibrary.Handlers
                             {
                                 if (mustcontain != string.Empty)
                                 {
-                                    if (episodeFileName.ToUpper().Contains(mustcontain.ToUpper()))
+                                    if (episodeFileName.ToLower().Contains(mustcontain.ToLower()))
                                     {
                                         must_contain_check = true;
                                         break;
@@ -121,7 +121,7 @@ namespace LittleWeebLibrary.Handlers
                             {
                                 if (cannotcontain != string.Empty)
                                 {
-                                    if (episodeFileName.ToUpper().Contains(cannotcontain.ToUpper()))
+                                    if (episodeFileName.ToLower().Contains(cannotcontain.ToLower()))
                                     {
                                         cannot_contain_check = false;
                                         break;

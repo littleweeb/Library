@@ -19,7 +19,7 @@ namespace LittleWeebLibrary.Handlers
     {
         Task<JObject> GetBotList();
         Task<JObject> SearchNibl(string query);
-        Task<JObject> SearchNibl(string query, int[] episodeRange, int page = 0, int amount = 50, string sort = "name", string order = "ASC");
+        Task<JObject> SearchNibl(List<string> query, int episode = -1, string sort = "name", string order = "ASC");
         Task<int> GetLatestEpisode(string query);
         Task<JObject> GetLatestFiles(string botid);
 
@@ -102,7 +102,7 @@ namespace LittleWeebLibrary.Handlers
                         info.Add("BotName",  bots.Value<string>(pack.Value<string>("botId")));
                         info.Add("PackNumber", pack.Value<string>("number"));
                         info.Add("FullFileName", pack.Value<string>("name"));
-                        info.Add("FileSize", pack.Value<int>("sizekbits").ToString());
+                        info.Add("FileSize", pack.Value<long>("sizekbits").ToString());
                         listWithPacks.Add(info);
                     }
                 }
@@ -110,7 +110,6 @@ namespace LittleWeebLibrary.Handlers
                 {
                     DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.WARNING);
                 }
-
 
                 return JObject.Parse("{\"bot\":\"" + bots.Value<string>(botid) + "\",\"packs\":" + JsonConvert.SerializeObject(listWithPacks) + " }");
             }
@@ -147,7 +146,7 @@ namespace LittleWeebLibrary.Handlers
                         info.Add("BotName", bots.Value<string>(pack.Value<string>("botId")));
                         info.Add("PackNumber", pack.Value<string>("number"));
                         info.Add("FullFileName", pack.Value<string>("name"));
-                        info.Add("FileSize", pack.Value<int>("sizekbits").ToString());
+                        info.Add("FileSize", pack.Value<long>("sizekbits").ToString());
                         listWithPacks.Add(info);
                     }
                 }
@@ -161,12 +160,19 @@ namespace LittleWeebLibrary.Handlers
             }
         }
 
-        public async Task<JObject> SearchNibl(string query, int[] episodeRange, int page = 0, int amount = 50, string sort = "name", string order = "ASC")
+        public async Task<JObject> SearchNibl(List<string> query,  int episode = -1, string sort = "name", string order = "ASC")
         {
             List<string> urls = new List<string>();
-            for (int i = episodeRange[0]; i < episodeRange[1]; i++)
+            foreach(string searchquery in query)
             {
-                urls.Add("search/page?query=" + query + "&episodeNumber=" + i + "&page=" + page + "&size=" + amount + "&sort=" + sort + "&direction=" + order);
+                if (episode > 0)
+                {
+                    urls.Add("search/page?query=" + searchquery + "&size=4000&sort=" + sort + "&direction=" + order + "&episodeNumber=" + episode.ToString());
+                }
+                else
+                {
+                    urls.Add("search/page?query=" + searchquery + "&size=4000&sort=" + sort + "&direction=" + order);
+                }
             }
 
             List<Task<string>> tasks = new List<Task<string>>();
@@ -196,7 +202,7 @@ namespace LittleWeebLibrary.Handlers
                 info.Add("BotName", bots.Value<string>(pack.Value<string>("botId")));
                 info.Add("PackNumber", pack.Value<string>("number"));
                 info.Add("FullFileName", pack.Value<string>("name"));
-                info.Add("FileSize", pack.Value<int>("sizekbits").ToString());
+                info.Add("FileSize", pack.Value<long>("sizekbits").ToString());
                 listWithPacks.Add(info);
             }
 
@@ -208,7 +214,17 @@ namespace LittleWeebLibrary.Handlers
        
         public async Task<int> GetLatestEpisode(string query)
         {
-            string searchresult = await Get("search/page?query=" + query + "&episodeNumber=0&page=0&size=1&sort=episodeNumber&direction=DESC");
+            string searchresult = await Get("search/page?query=" + query + "&episodeNumber=0&page=0&size=100&sort=episodeNumber&direction=DESC");
+
+
+            int season = -1;
+
+            Dictionary<string, string> parsedquery = WeebFileNameParser.ParseFullString(query);
+
+            if (parsedquery.ContainsKey("Season"))
+            {
+                season = int.Parse(parsedquery["Season"]);
+            }
 
             if (searchresult.Contains("failed:"))
             {
@@ -220,13 +236,40 @@ namespace LittleWeebLibrary.Handlers
             {
 
                 DebugHandler.TraceMessage("Search query: " + query + " SUCCEEDED.", DebugSource.TASK, DebugType.INFO);
-                List<Dictionary<string, string>> listWithPacks = new List<Dictionary<string, string>>();
 
                 try
                 {
                     JObject result = JObject.Parse(searchresult);
                     JArray array = result.Value<JArray>("content");
-                    int episodeNumber = array[0].Value<int>("episodeNumber");
+
+                    int largest = 0;
+                    foreach (JObject pack in array.Children())
+                    {
+                        Dictionary<string, string> info = WeebFileNameParser.ParseFullString(pack.Value<string>("name"));
+
+                        if (season != -1)
+                        {
+                            if (info.ContainsKey("Season"))
+                            {
+                                if (int.Parse(info["Season"]) == season)
+                                {
+                                    if (pack.Value<int>("episodeNumber") > largest)
+                                    {
+                                        largest = pack.Value<int>("episodeNumber");
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            if (pack.Value<int>("episodeNumber") > largest)
+                            {
+                                largest = pack.Value<int>("episodeNumber");
+                            }
+                        }
+                    }
+
+                    int episodeNumber = largest;
                     return episodeNumber;
                     
                 }
