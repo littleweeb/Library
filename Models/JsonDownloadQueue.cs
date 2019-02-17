@@ -9,7 +9,7 @@ namespace LittleWeebLibrary.Models
     {
         public string type { get; set; } = "download_queue";
         public List<JsonDownloadInfo> downloadQueue { get; set; } = new List<JsonDownloadInfo>();
-        public string updated { get; set; } = DateTime.Now.Millisecond.ToString();
+        public string updated { get; set; } = StaticClasses.UtilityMethods.GetEpoch().ToString();
         public string ToJson()
         {
             return JsonConvert.SerializeObject(this);

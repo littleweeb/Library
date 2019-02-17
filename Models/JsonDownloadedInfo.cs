@@ -18,7 +18,7 @@ namespace LittleWeebLibrary.Models
         public string filename { get; set; } = string.Empty;
         public string filesize { get; set; } = string.Empty;
         public string fullfilepath { get; set; } = string.Empty;
-        public string updated { get; set; } = DateTime.Now.Millisecond.ToString();
+        public string updated { get; set; } = StaticClasses.UtilityMethods.GetEpoch().ToString();
 #pragma warning restore IDE1006
 
         public string ToJson()

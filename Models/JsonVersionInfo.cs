@@ -17,7 +17,7 @@ namespace LittleWeebLibrary.Models
         public string file_name { get; set; } = "Not Found";
         public string date { get; set; } = "0000-00-00T00:00:00Z";
         public string release_version { get; set; } = "develop";
-        public string updated { get; set; } = DateTime.Now.Millisecond.ToString();
+        public string updated { get; set; } = StaticClasses.UtilityMethods.GetEpoch().ToString();
 
         public string ToJson()
         {

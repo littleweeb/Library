@@ -5,11 +5,11 @@ using System.Collections.Generic;
 
 namespace LittleWeebLibrary.Models
 {
-    public class JsonKistuCategories
+    public class JsonKistuGenres
     {
-        public string type { get; set; } = "kitsu_categories";
+        public string type { get; set; } = "kitsu_genres";
         public JArray result { get; set; } = new JArray();
-        public string updated { get; set; } = DateTime.Now.Millisecond.ToString();
+        public string updated { get; set; } = StaticClasses.UtilityMethods.GetEpoch().ToString();
 
         public string ToJson()
         {

@@ -22,7 +22,7 @@ namespace LittleWeebLibrary.Models
         public JObject anime_rules { get; set; } = new JObject();
         public JArray anime_bot_sources { get; set; } = new JArray();
         public bool anime_stored { get; set; } = true;
-        public string updated { get; set; } = DateTime.Now.Millisecond.ToString();
+        public string updated { get; set; } = StaticClasses.UtilityMethods.GetEpoch().ToString();
 #pragma warning restore IDE1006
 
         public string ToJson()

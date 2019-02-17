@@ -10,7 +10,7 @@ namespace LittleWeebLibrary.Models
         public string errortype { get; set; } = string.Empty;
         public string errormessage { get; set; } = string.Empty;
         public string exception { get; set; } = string.Empty;
-        public string updated { get; set; } = DateTime.Now.Millisecond.ToString();
+        public string updated { get; set; } = StaticClasses.UtilityMethods.GetEpoch().ToString();
 
         public string ToJson()
         {

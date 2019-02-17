@@ -67,6 +67,15 @@ namespace LittleWeebLibrary.Controllers.SubControllers
                                 case "add_rule":
                                     InfoApiWebSocketService.AddRule(extra);
                                     break;
+                                case "get_categories_kitsu":
+                                    InfoApiWebSocketService.GetAllCategories(extra);
+                                    break;
+                                case "get_genres_kitsu":
+                                    InfoApiWebSocketService.GetAllGenres(extra);
+                                    break;
+                                case "get_botlist_nibl":
+                                    InfoApiWebSocketService.GetBotList(extra);
+                                    break;
                             }
                         }
                         else
@@ -77,13 +86,13 @@ namespace LittleWeebLibrary.Controllers.SubControllers
                                     InfoApiWebSocketService.GetCurrentlyAiring();
                                     break;
                                 case "get_categories_kitsu":
-                                    InfoApiWebSocketService.GetAllCategories();
+                                    InfoApiWebSocketService.GetAllCategories(new JObject());
                                     break;
                                 case "get_genres_kitsu":
-                                    InfoApiWebSocketService.GetAllGenres();
+                                    InfoApiWebSocketService.GetAllGenres(new JObject());
                                     break;
                                 case "get_botlist_nibl":
-                                    InfoApiWebSocketService.GetBotList();
+                                    InfoApiWebSocketService.GetBotList(new JObject());
                                     break;
                             }
                         }

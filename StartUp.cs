@@ -79,7 +79,7 @@ namespace LittleWeebLibrary
             FileWebSocketService =      new FileWebSocketService(WebSocketHandler, FileHandler, FileHistoryHandler, DownloadHandler, DebugHandler);
             IrcWebSocketService =       new IrcWebSocketService(WebSocketHandler, IrcClientHandler, SettingsHandler, DebugHandler);
             SettingsWebSocketService =  new SettingsWebSocketService(WebSocketHandler, DirectoryHandler, DebugHandler);
-            InfoApiWebSocketService =   new InfoApiWebSocketService(WebSocketHandler, AnimeProfileHandler, NiblHandler, KitsuHandler, AnimeRuleHandler, DebugHandler);
+            InfoApiWebSocketService =   new InfoApiWebSocketService(WebSocketHandler, AnimeProfileHandler, NiblHandler, KitsuHandler, AnimeRuleHandler, DataBaseHandler, DebugHandler);
             VersionWebSocketService =   new VersionWebSocketService(WebSocketHandler, VersionHandler, DebugHandler);
             DataBaseWebSocketService =  new DataBaseWebSocketService(WebSocketHandler, DataBaseHandler, DebugHandler);
 

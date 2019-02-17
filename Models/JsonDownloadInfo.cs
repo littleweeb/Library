@@ -22,7 +22,7 @@ namespace LittleWeebLibrary.Models
         public int downloadIndex { get; set; } = -1;
         public string fullfilepath{ get; set; } = string.Empty;
         public string downloadDirectory { get; set; } = string.Empty;
-        public string updated { get; set; } = DateTime.Now.Millisecond.ToString();
+        public string updated { get; set; } = StaticClasses.UtilityMethods.GetEpoch().ToString();
 
         public string ToJson()
         {

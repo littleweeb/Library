@@ -21,9 +21,9 @@ namespace LittleWeebLibrary.Services
         Task GetFilesForAnime(JObject query);
         Task GetAnimeEpisodes(JObject query);
         Task AddRule(JObject query);
-        Task GetAllGenres();
-        Task GetAllCategories();
-        Task GetBotList();
+        Task GetAllGenres(JObject query);
+        Task GetAllCategories(JObject query);
+        Task GetBotList(JObject query);
     }
     public class InfoApiWebSocketService : IInfoApiWebSocketService
     {     
@@ -33,10 +33,11 @@ namespace LittleWeebLibrary.Services
         private readonly IKitsuHandler KitsuHandler;
         private readonly IAnimeRuleHandler AnimeRuleHandler;
         private readonly IWebSocketHandler WebSocketHandler;
+        private readonly IDataBaseHandler DataBaseHandler;
         private readonly IDebugHandler DebugHandler;
         private WeebFileNameParser WeebFileNameParser;
 
-        public InfoApiWebSocketService(IWebSocketHandler webSocketHandler, IAnimeProfileHandler infoApiHandler, INiblHandler niblHandler, IKitsuHandler kitsuHandler, IAnimeRuleHandler animeRuleHandler, IDebugHandler debugHandler)
+        public InfoApiWebSocketService(IWebSocketHandler webSocketHandler, IAnimeProfileHandler infoApiHandler, INiblHandler niblHandler, IKitsuHandler kitsuHandler, IAnimeRuleHandler animeRuleHandler, IDataBaseHandler dataBaseHandler, IDebugHandler debugHandler)
         {
             debugHandler.TraceMessage("Constructor Called.", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
 
@@ -45,6 +46,7 @@ namespace LittleWeebLibrary.Services
             NiblHandler = niblHandler;
             KitsuHandler = kitsuHandler;
             AnimeRuleHandler = animeRuleHandler;
+            DataBaseHandler = dataBaseHandler;
             DebugHandler = debugHandler;
 
             WeebFileNameParser = new WeebFileNameParser();
@@ -56,8 +58,20 @@ namespace LittleWeebLibrary.Services
             DebugHandler.TraceMessage("Query: " + query.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
 
             string id = query.Value<string>("id");
-            int episodePage = query.Value<int>("page");
-            JsonKitsuAnimeInfo info = await AnimeProfileHandler.GetAnimeProfile(id);
+            bool noCache = false;
+            int amountPerPage = 40;
+
+            if (query.ContainsKey("no_cache"))
+            {
+                noCache = query.Value<bool>("no_cache");
+            }
+
+            if (query.ContainsKey("amount_per_page"))
+            {
+                amountPerPage = query.Value<int>("amount_per_page");
+            }
+
+            JsonKitsuAnimeInfo info = await AnimeProfileHandler.GetAnimeProfile(id, amountPerPage, noCache);
 
             await WebSocketHandler.SendMessage(info.ToJson());
 
@@ -89,8 +103,12 @@ namespace LittleWeebLibrary.Services
                     returnresult.Add(title, result);
                 }
 
+                JsonNiblSearchResult resultoreturn = new JsonNiblSearchResult()
+                {
+                    result = returnresult
+                };
 
-                await WebSocketHandler.SendMessage(returnresult.ToString());
+                await WebSocketHandler.SendMessage(resultoreturn.ToJson());
             }
             catch (Exception e)
             {
@@ -146,9 +164,34 @@ namespace LittleWeebLibrary.Services
 
             try
             {
+                JsonCurrentlyAiring currentlyAiring = new JsonCurrentlyAiring();
 
-                JsonCurrentlyAiring currentlyAiring = await AnimeProfileHandler.GetCurrentlyAiring(query.Value<double>("likeness"), query.Value<bool>("nonniblfoundanime"), query.Value<int>("botid"));
+                bool noCache = false;
+                int bot = 21;
+                bool noniblfoundresult = false;
+                bool cached = false;
 
+                if (query.ContainsKey("no_cache"))
+                {
+                    noCache = query.Value<bool>("no_cache");
+                }
+
+                if (query.ContainsKey("no_nibl_found_anime"))
+                {
+                    noniblfoundresult = query.Value<bool>("no_nibl_found_anime");
+                }
+
+                if ( query.ContainsKey("bot_id"))
+                {
+                    bot = query.Value<int>("bot_id");
+                }
+
+                if (query.ContainsKey("cached"))
+                {
+                    cached = query.Value<bool>("cached");
+                }
+
+                currentlyAiring = await AnimeProfileHandler.GetCurrentlyAiring(noniblfoundresult, bot, noCache, cached);
                 await WebSocketHandler.SendMessage(currentlyAiring.ToJson());
 
             }
@@ -171,17 +214,31 @@ namespace LittleWeebLibrary.Services
         public async Task GetAnimeEpisodes(JObject query)
         {
             DebugHandler.TraceMessage("GetAnimeEpisodes Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+
+
             string id = query.Value<string>("id");
-            JsonKitsuAnimeInfo info = new JsonKitsuAnimeInfo();
+            bool noCache = false;
+            bool cached = false;
+            int amountPerPage = 26;
+
+            if (query.ContainsKey("no_cache"))
+            {
+                noCache = query.Value<bool>("no_cache");
+            }
+
             if (query.ContainsKey("amount_per_page"))
             {
-                int amountPerPage = query.Value<int>("amount_per_page");
-                info = await AnimeProfileHandler.GetAnimeEpisodes(id, amountPerPage);
+                amountPerPage = query.Value<int>("amount_per_page");
             }
-            else
+
+            if (query.ContainsKey("cached"))
             {
-                info = await AnimeProfileHandler.GetAnimeEpisodes(id);
+                cached = query.Value<bool>("cached");
             }
+
+
+            JsonKitsuAnimeInfo info = new JsonKitsuAnimeInfo();
+            info = await AnimeProfileHandler.GetAnimeEpisodes(id, amountPerPage, noCache, cached);
 
             await WebSocketHandler.SendMessage(info.ToJson());
         }
@@ -190,6 +247,10 @@ namespace LittleWeebLibrary.Services
         {
             DebugHandler.TraceMessage("SearchKitsu Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
             Dictionary<string, string> listWithQueries = new Dictionary<string, string>();
+
+
+
+
             if (query.ContainsKey("query")){
 
                 DebugHandler.TraceMessage("Has query parameters: " + query.Value<JArray>("query").ToString(), DebugSource.TASK, DebugType.INFO);
@@ -206,7 +267,9 @@ namespace LittleWeebLibrary.Services
                     }
                 }
             }
-            if (query.ContainsKey("page"))
+
+
+            if (query.ContainsKey("page") && !query.ContainsKey("pages"))
             {
                 JsonKistuSearchResult searchResult = await KitsuHandler.SearchAnime(query.Value<string>("search"), listWithQueries, query.Value<int>("page"));
 
@@ -255,83 +318,136 @@ namespace LittleWeebLibrary.Services
             }
         }
 
-        public async Task GetAllGenres()
+        public async Task GetAllGenres(JObject query)
         {
             DebugHandler.TraceMessage(" GetAllGenres Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
-            JsonKistuGenres genres = new JsonKistuGenres()
-            {
-                result = await KitsuHandler.GetAllGenres()
-            };
 
-            if (genres.result.Count > 0)
-            {
+            JObject db_result = await DataBaseHandler.GetJObject("kitsu", "genres");
 
-                await WebSocketHandler.SendMessage(genres.ToJson());
+            bool noCache = false;
+
+            if (query.ContainsKey("no_cache"))
+            {
+                noCache = query.Value<bool>("no_cache");
+            }
+
+            if (db_result.Count > 0 && !noCache)
+            {
+                await WebSocketHandler.SendMessage(db_result.ToString());
             }
             else
             {
-                JsonError error = new JsonError()
+                JsonKistuGenres genres = new JsonKistuGenres()
                 {
-                    type = "kitsu_genres_error",
-                    errormessage = "Failed to retrieve genres from kitsu.",
-                    errortype = "warning"
+                    result = await KitsuHandler.GetAllGenres()
                 };
 
-                await WebSocketHandler.SendMessage(error.ToJson());
+                if (genres.result.Count > 0)
+                {
+                    await DataBaseHandler.StoreJObject("kitsu", genres.ToJObject(), "genres");
+                    await WebSocketHandler.SendMessage(genres.ToJson());
+                }
+                else
+                {
+                    JsonError error = new JsonError()
+                    {
+                        type = "kitsu_genres_error",
+                        errormessage = "Failed to retrieve genres from kitsu.",
+                        errortype = "warning"
+                    };
+
+                    await WebSocketHandler.SendMessage(error.ToJson());
+                }
             }
+
+           
         }
 
-        public async Task GetAllCategories()
+        public async Task GetAllCategories(JObject query)
         {
             DebugHandler.TraceMessage(" GetAllCategories Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
-            JsonKistuCategories categories = new JsonKistuCategories()
-            {
-                result = await KitsuHandler.GetAllCategories()
-            };
 
-            if (categories.result.Count > 0)
-            {
+            JObject db_result = await DataBaseHandler.GetJObject("kitsu", "categories");
 
-                await WebSocketHandler.SendMessage(categories.ToJson());
+            bool noCache = false;
+
+            if (query.ContainsKey("no_cache"))
+            {
+                noCache = query.Value<bool>("no_cache");
+            }
+
+
+            if (db_result.Count > 0 && !noCache)
+            {
+                await WebSocketHandler.SendMessage(db_result.ToString());
             }
             else
             {
-                JsonError error = new JsonError()
+
+                JsonKistuCategories categories = new JsonKistuCategories()
                 {
-                    type = "kitsu_categories_error",
-                    errormessage = "Failed to retrieve categories from kitsu.",
-                    errortype = "warning"
+                    result = await KitsuHandler.GetAllCategories()
                 };
 
-                await WebSocketHandler.SendMessage(error.ToJson());
+                if (categories.result.Count > 0)
+                {
+                    await DataBaseHandler.StoreJObject("kitsu", categories.ToJObject(), "categories");
+                    await WebSocketHandler.SendMessage(categories.ToJson());
+                }
+                else
+                {
+                    JsonError error = new JsonError()
+                    {
+                        type = "kitsu_categories_error",
+                        errormessage = "Failed to retrieve categories from kitsu.",
+                        errortype = "warning"
+                    };
+
+                    await WebSocketHandler.SendMessage(error.ToJson());
+                }
             }
+                
 
         }
 
-        public async Task GetBotList()
+        public async Task GetBotList(JObject query)
         {
             JsonNiblBotList botlist = new JsonNiblBotList()
             {
                 result = await NiblHandler.GetBotList()
             };
+            bool noCache = false;
 
-            if (botlist.result.Count > 0)
+            if (query.ContainsKey("no_cache"))
             {
+                noCache = query.Value<bool>("no_cache");
+            }
 
-                await WebSocketHandler.SendMessage(botlist.ToJson());
+            JObject db_result = await DataBaseHandler.GetJObject("nibl", "botlist");
+            if (db_result.Count > 0 && !noCache)
+            {
+                await WebSocketHandler.SendMessage(db_result.ToString());
             }
             else
             {
-                JsonError error = new JsonError()
+                if (botlist.result.Count > 0)
                 {
-                    type = "nibl_botlist_error",
-                    errormessage = "Failed to retrieve categories from nibl.",
-                    errortype = "warning"
-                };
 
-                await WebSocketHandler.SendMessage(error.ToJson());
-            }
+                    await DataBaseHandler.StoreJObject("nibl", botlist.ToJObject(), "botlist");
+                    await WebSocketHandler.SendMessage(botlist.ToJson());
+                }
+                else
+                {
+                    JsonError error = new JsonError()
+                    {
+                        type = "nibl_botlist_error",
+                        errormessage = "Failed to retrieve categories from nibl.",
+                        errortype = "warning"
+                    };
 
+                    await WebSocketHandler.SendMessage(error.ToJson());
+                }
+            }            
         }
     }
 }

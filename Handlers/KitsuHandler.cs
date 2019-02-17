@@ -16,7 +16,7 @@ namespace LittleWeebLibrary.Handlers
     {
 
         Task<JsonKitsuAnimeInfo> GetFullAnime(string animeId, int amountEpisodesPerPage = 26);
-        Task<JsonKistuSearchResult> SearchAnime(string search, Dictionary<string,string> queryList, int page = 0, int pages = -1);
+        Task<JsonKistuSearchResult> SearchAnime(string search, Dictionary<string,string> queryList, int page = 0, int pages = 1);
         Task<JObject> GetAnime(string animeId);
         Task<JArray> GetEpisodes(string animeId, int page = 0, int pages = -1, int results = 20, string order = "ASC");
         Task<JObject> GetEpisode(string animeId, int episodeNumber);
@@ -39,17 +39,12 @@ namespace LittleWeebLibrary.Handlers
             DebugHandler = debugHandler;
         }
 
-        public async Task<JsonKistuSearchResult> SearchAnime(string search, Dictionary<string,string> queryList, int page = 0, int pages = -1) {
+        public async Task<JsonKistuSearchResult> SearchAnime(string search, Dictionary<string,string> queryList, int page = 0, int pages = 1) {
 
             DebugHandler.TraceMessage("SearchAnime Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
             DebugHandler.TraceMessage("Search: " + search + ", page: " + page.ToString() + ", pages: " + pages.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
             JArray array = new JArray();
-
-            int totalPages = 2;
-
-            if (pages == -1) {
-                pages = totalPages;
-            }
+            
 
             string query = "";
 
@@ -64,7 +59,7 @@ namespace LittleWeebLibrary.Handlers
             }
 
 
-            string searchresult = await Get("anime?" + query.Substring(1) + "&fields[anime]=canonicalTitle,averageRating,subtype,status,coverImage,posterImage,abbreviatedTitles,titles&page[limit]=20&page[offset]=0");
+            string searchresult = await Get("anime?" + query.Substring(1) + "&fields[anime]=canonicalTitle,averageRating,subtype,status,coverImage,posterImage,abbreviatedTitles,titles&page[limit]=20&page[offset]=" + (page * 20).ToString());
 
             if (searchresult.Contains("failed:"))
             {
@@ -78,7 +73,7 @@ namespace LittleWeebLibrary.Handlers
 
             JObject searchresultjobject = JObject.Parse(searchresult);
 
-            totalPages = (int)Math.Ceiling(((double)((searchresultjobject["meta"].Value<int>("count")) / (double)20) + 0.5));
+            int totalPages = (int)Math.Ceiling(((double)((searchresultjobject["meta"].Value<int>("count")) / (double)20) + 0.5));
 
             if (pages == -1)
             {
@@ -229,12 +224,14 @@ namespace LittleWeebLibrary.Handlers
             JArray page = new JArray();
 
             int count = 0;
+
             foreach (JObject episode in episodes)
             {
-                if ((count % amountEpisodesPerPage) == 0 && count != 0)
+                if (count >= amountEpisodesPerPage)
                 {
                     episodePages.Add(page);
                     page = new JArray();
+                    count = 0;
                 }
                 page.Add(episode);
                 count++;
@@ -324,7 +321,6 @@ namespace LittleWeebLibrary.Handlers
                 {
                     break;
                 }
-
 
                 tasks.Add(Get("anime?filter[status]=current&fields[anime]=canonicalTitle,averageRating,subtype,status,coverImage,posterImage,abbreviatedTitles,titles&page[limit]=20&page[offset]=" + (i * 20).ToString()));
 

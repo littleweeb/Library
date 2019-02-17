@@ -17,8 +17,8 @@ namespace LittleWeebLibrary.Handlers
         Task<JObject> GetJObject(string collection, string id);
         Task<JObject> GetJObject(string collection, string property, string value);
         Task<bool> StoreJObject(string collection, JObject toStore, string id = "");
-        Task<bool> UpdateJObject(string collection, JObject toUpdate, string property, string value);
-        Task<bool> UpdateJObject(string collection, JObject toUpdate, string id = "");
+        Task<bool> UpdateJObject(string collection, JObject toUpdate, string property, string value, bool overwrite = false);
+        Task<bool> UpdateJObject(string collection, JObject toUpdate, string id = "", bool overwrite = false);
         Task<bool> RemoveJObject(string collection, string property, string value);
         Task<bool> RemoveJObject(string collection, string id = "");
     }
@@ -329,7 +329,7 @@ namespace LittleWeebLibrary.Handlers
             return toReturn;
         }
 
-        public async Task<bool> UpdateJObject(string collection, JObject toUpdate, string id)
+        public async Task<bool> UpdateJObject(string collection, JObject toUpdate, string id, bool overwrite = false)
         {
             DebugHandler.TraceMessage("UpdateJObject called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
             DebugHandler.TraceMessage("Collection: " + collection, DebugSource.TASK, DebugType.PARAMETERS);
@@ -341,12 +341,20 @@ namespace LittleWeebLibrary.Handlers
 
             if (old.Count > 0)
             {
-                JsonMergeSettings mergeSettings = new JsonMergeSettings()
+                if (!overwrite)
                 {
-                    MergeArrayHandling = MergeArrayHandling.Union
-                };
-                old.Merge(toUpdate, mergeSettings);
 
+                    JsonMergeSettings mergeSettings = new JsonMergeSettings()
+                    {
+                        MergeArrayHandling = MergeArrayHandling.Union
+                    };
+                    old.Merge(toUpdate, mergeSettings);
+
+                }
+                else
+                {
+                    old = toUpdate;
+                }
                 toReturn = await StoreJObject(collection, old, id);
             }
             else
@@ -357,7 +365,7 @@ namespace LittleWeebLibrary.Handlers
             return toReturn;
         }
 
-        public async Task<bool> UpdateJObject(string collection, JObject toUpdate, string property, string value)
+        public async Task<bool> UpdateJObject(string collection, JObject toUpdate, string property, string value, bool overwrite = false)
         {
             DebugHandler.TraceMessage("UpdateJObject called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
             DebugHandler.TraceMessage("Collection: " + collection, DebugSource.TASK, DebugType.PARAMETERS);
@@ -370,11 +378,20 @@ namespace LittleWeebLibrary.Handlers
 
             if (old.Count > 0)
             {
-                JsonMergeSettings mergeSettings = new JsonMergeSettings()
+                if (!overwrite)
                 {
-                    MergeArrayHandling = MergeArrayHandling.Union
-                };
-                old.Merge(toUpdate, mergeSettings);
+
+                    JsonMergeSettings mergeSettings = new JsonMergeSettings()
+                    {
+                        MergeArrayHandling = MergeArrayHandling.Union
+                    };
+                    old.Merge(toUpdate, mergeSettings);
+
+                }
+                else
+                {
+                    old = toUpdate;
+                }
                 toReturn = await StoreJObject(collection, old, old.Value<string>("_id"));
             }
             else

@@ -9,7 +9,7 @@ namespace LittleWeebLibrary.Models
     {
         public string type { get; set; } = "database_document";
         public JObject result { get; set; } = new JObject();
-        public string updated { get; set; } = DateTime.Now.Millisecond.ToString();
+        public string updated { get; set; } = StaticClasses.UtilityMethods.GetEpoch().ToString();
 
         public string ToJson()
         {
