@@ -248,9 +248,6 @@ namespace LittleWeebLibrary.Services
             DebugHandler.TraceMessage("SearchKitsu Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
             Dictionary<string, string> listWithQueries = new Dictionary<string, string>();
 
-
-
-
             if (query.ContainsKey("query")){
 
                 DebugHandler.TraceMessage("Has query parameters: " + query.Value<JArray>("query").ToString(), DebugSource.TASK, DebugType.INFO);

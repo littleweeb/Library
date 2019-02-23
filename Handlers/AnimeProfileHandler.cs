@@ -55,6 +55,8 @@ namespace LittleWeebLibrary.Handlers
         {
             DebugHandler.TraceMessage("GetAnimeProfile called", DebugSource.TASK, DebugType.ENTRY_EXIT);
             DebugHandler.TraceMessage("Anime ID: " + id, DebugSource.TASK, DebugType.PARAMETERS);
+            DebugHandler.TraceMessage("Amount Episodes Per Page: " + amountPerPage, DebugSource.TASK, DebugType.PARAMETERS);
+            DebugHandler.TraceMessage("NoCache: " + noCache, DebugSource.TASK, DebugType.PARAMETERS);
 
 
             JsonKitsuAnimeInfo result = new JsonKitsuAnimeInfo();
@@ -80,7 +82,7 @@ namespace LittleWeebLibrary.Handlers
                 }
 
 
-                if (result.anime_episodes_per_page != amountPerPage)
+                if (result.anime_episodes_per_page != amountPerPage && result.anime_episodes.Count > 0)
                 {
                     DebugHandler.TraceMessage("RE-ARRANGING EPISODES PER PAGE BEFORE PARSING", DebugSource.TASK, DebugType.INFO);
                     JArray AllEpisodes = new JArray();
@@ -120,23 +122,19 @@ namespace LittleWeebLibrary.Handlers
             return result;
         }
 
-
-
         public async Task<JsonKitsuAnimeInfo> GetAnimeEpisodes(string id, int amountPerPage = 26, bool noCache = false, bool cached = false)
         {
-            JsonKitsuAnimeInfo result = null;
-            JObject db_result = await DataBaseHandler.GetJObject("anime", id);
-            
-            if (db_result.Count == 0)
-            {
-                result = await GetAnimeProfile(id, amountPerPage);
-            }
-            else
-            {
-                result = JsonConvert.DeserializeObject<JsonKitsuAnimeInfo>(db_result.ToString());
-            }
+            DebugHandler.TraceMessage("GetAnimeEpisodes called", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            DebugHandler.TraceMessage("Anime ID: " + id, DebugSource.TASK, DebugType.PARAMETERS);
+            DebugHandler.TraceMessage("Amount Episodes Per Page: " + amountPerPage, DebugSource.TASK, DebugType.PARAMETERS);
+            DebugHandler.TraceMessage("NoCache: " + noCache, DebugSource.TASK, DebugType.PARAMETERS);
+            DebugHandler.TraceMessage("cached: " + cached, DebugSource.TASK, DebugType.PARAMETERS);
 
-            DebugHandler.TraceMessage("Does anime contains files: " + result.anime_episodes[0].Value<JObject>(0).ContainsKey("files").ToString(), DebugSource.TASK, DebugType.INFO);
+
+            JsonKitsuAnimeInfo result = await GetAnimeProfile(id, amountPerPage, noCache);
+
+
+          //  DebugHandler.TraceMessage("Does anime contains files: " + result.anime_episodes[0].Value<JObject>(0).ContainsKey("files").ToString(), DebugSource.TASK, DebugType.INFO);
             DebugHandler.TraceMessage("OR Is anime current: " + result.anime_info["attributes"].Value<string>("status"), DebugSource.TASK, DebugType.INFO);
             DebugHandler.TraceMessage("AND Previous time updated:  " + long.Parse(result.updated).ToString(), DebugSource.TASK, DebugType.INFO);
             DebugHandler.TraceMessage("AND Current time minus 30 minutes:  " + (UtilityMethods.GetEpoch() - (30*60*1000)).ToString(), DebugSource.TASK, DebugType.INFO);
@@ -144,11 +142,11 @@ namespace LittleWeebLibrary.Handlers
             DebugHandler.TraceMessage("OR refresh cache:  " + noCache.ToString(), DebugSource.TASK, DebugType.INFO);
 
 
-
-            if (result.anime_episodes_per_page != amountPerPage) 
+            //this reanages the episodes into separate pages if the old amount per page differes from the newly requested
+            if (result.anime_episodes_per_page != amountPerPage && result.anime_episodes.Count > 0) 
             {
 
-                DebugHandler.TraceMessage("RE-ARRANGING EPISODES PER PAGE BEFORE PARSING", DebugSource.TASK, DebugType.INFO);
+                DebugHandler.TraceMessage("RE-ARRANGING EPISODES PER PAGE BEFORE PARSING (EPSISODE PARSING)", DebugSource.TASK, DebugType.INFO);
                 JArray AllEpisodes = new JArray();
                 foreach (JArray current_page in result.anime_episodes)
                 {
@@ -179,19 +177,36 @@ namespace LittleWeebLibrary.Handlers
 
             }
 
-            if (cached && result.anime_episodes[0].Value<JObject>(0).ContainsKey("files"))
+            //only if the anime is not currently airing
+            if (cached && result.anime_episodes.Count > 0)
             {
-                return result;
+                if (result.anime_episodes[0].Value<JObject>(0).ContainsKey("files"))
+                {
+                    DebugHandler.TraceMessage("RETURNING REORDERD EXISTING EPISODES", DebugSource.TASK, DebugType.INFO);
+                    return result;
+                }
             }
 
 
-            if (!result.anime_episodes[0].Value<JObject>(0).ContainsKey("files") || (result.anime_info["attributes"].Value<string>("status") == "current" && long.Parse(result.updated) > (UtilityMethods.GetEpoch() - (30*60*1000))) || noCache) {
-                if (result != null)
+            bool hasEpisodesAndFiles = false;
+            bool hasEpisodes = false;
+
+            if (result.anime_episodes.Count > 0)
+            {
+                hasEpisodes = true;
+                if (result.anime_episodes[0].Value<JObject>(0).ContainsKey("files"))
+                    hasEpisodesAndFiles = true;
+            }
+
+            if (result != null && hasEpisodes) {
+                if (!result.anime_stored
+                || !hasEpisodesAndFiles
+                || (result.anime_info["attributes"].Value<string>("status") == "current"
+                    &&
+                    long.Parse(result.updated) > (UtilityMethods.GetEpoch() - (30 * 60 * 1000)))
+                || noCache)
                 {
                     DebugHandler.TraceMessage("START GATHERING EPISODE FILES PER EPISODE", DebugSource.TASK, DebugType.INFO);
-
-                    
-
 
                     List<string> animeTitles = new List<string>();
                     int seasonNumber = 1;
@@ -256,10 +271,14 @@ namespace LittleWeebLibrary.Handlers
                     loadDataTasks = new Task[]
                     {
                         //compare results per episode from kitsu
-                        Task.Run(async () => result.anime_episodes = await CombineAnimeEpisodesParsedNiblResults(result.anime_episodes, parsedNiblResults)),
+                        Task.Run(async () => {
+                            Tuple<JArray, Dictionary<string, int>> combined = await CombineAnimeEpisodesParsedNiblResults(result.anime_episodes, parsedNiblResults);
+                            result.anime_episodes = combined.Item1;
+                            result.anime_resolutions = JObject.FromObject(combined.Item2);
+                        }),
                 
                         //search nibl
-                        Task.Run(async () => result.anime_bot_sources.Merge(await BotListPerResults(parsedNiblResults)))
+                        Task.Run(async () => result.anime_bot_sources = await BotListPerResults(parsedNiblResults))
                     };
                     try
                     {
@@ -400,8 +419,7 @@ namespace LittleWeebLibrary.Handlers
             return airing;
 
         }
-
-
+        
         private async Task<int> GetSeasonFromAnime(JsonKitsuAnimeInfo info)
         {
 
@@ -657,7 +675,6 @@ namespace LittleWeebLibrary.Handlers
             return animeTitles;
         }
 
-       
         private async Task<Dictionary<string, Dictionary<int, List<JObject>>>> ParseNiblSearchResults(JObject niblResults, int previousEpisodeEnd, int seasonNumber)
         {
 
@@ -675,95 +692,35 @@ namespace LittleWeebLibrary.Handlers
                 { "1080P", new Dictionary<int, List<JObject>>()}
             };
 
+
             await Task.Run(() => {
-                foreach (JObject pack in niblResults.Value<JArray>("packs"))
+
+
+                JObject[] items = niblResults.Value<JArray>("packs").ToObject<JObject[]>();
+
+                Parallel.ForEach(items, (pack) =>
                 {
-                    string resolution = "UNKNOWN";
-
-                    bool correctSeason = false;
-                    int seasonFromFile = -1;
-                    if (pack.ContainsKey("Season"))
+                    try
                     {
+                        string resolution = "UNKNOWN";
 
-                        if (int.TryParse(pack.Value<string>("Season"), out seasonFromFile))
+                        bool correctSeason = false;
+                        int seasonFromFile = -1;
+                        if (pack.ContainsKey("Season"))
                         {
-                            if (seasonFromFile == seasonNumber)
-                            {
-                                correctSeason = true;
-                            }
-                        }
-                    }
 
-                    if (correctSeason || seasonNumber < 0)
-                    {
-                        if (pack.ContainsKey("Video_Resolution"))
-                        {
-                            resolution = pack.Value<string>("Video_Resolution");
+                            if (int.TryParse(pack.Value<string>("Season"), out seasonFromFile))
+                            {
+                                if (seasonFromFile == seasonNumber)
+                                {
+                                    correctSeason = true;
+                                }
+                            }
                         }
 
-                        int episodeValue = -1;
-                        if (!resolutions.ContainsKey(resolution))
+                        if (correctSeason || seasonNumber < 0)
                         {
-                            if (pack.ContainsKey("Episode"))
-                            {
-                                if (int.TryParse(pack.Value<string>("Episode"), out episodeValue))
-                                {
-                                    resolutions.Add(resolution, new Dictionary<int, List<JObject>>() { { episodeValue, new List<JObject>() { pack } } });
-                                }
-                                else
-                                {
-                                    resolutions.Add(resolution, new Dictionary<int, List<JObject>>() { { episodeValue, new List<JObject>() { pack } } });
-                                }
-                            }
-                            else
-                            {
-                                resolutions.Add(resolution, new Dictionary<int, List<JObject>>() { { episodeValue, new List<JObject>() { pack } } });
-                            }
-                        }
-                        else
-                        {
-                            if (pack.ContainsKey("Episode"))
-                            {
-                                if (int.TryParse(pack.Value<string>("Episode"), out episodeValue))
-                                {
-                                    if (resolutions[resolution].ContainsKey(episodeValue))
-                                    {
-                                        resolutions[resolution][episodeValue].Add(pack);
-                                    }
-                                    else
-                                    {
-                                        resolutions[resolution].Add(episodeValue, new List<JObject>() { pack });
-                                    }
-                                }
-                                else
-                                {
-                                    if (resolutions[resolution].ContainsKey(episodeValue))
-                                    {
-                                        resolutions[resolution][episodeValue].Add(pack);
-                                    }
-                                    else
-                                    {
-                                        resolutions[resolution].Add(episodeValue, new List<JObject>() { pack });
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                if (resolutions[resolution].ContainsKey(episodeValue))
-                                {
-                                    resolutions[resolution][episodeValue].Add(pack);
-                                }
-                                else
-                                {
-                                    resolutions[resolution].Add(episodeValue, new List<JObject>() { pack });
-                                }
-                            }
-                        }
-                    }
-                    else // not correct season
-                    {
-                        if (previousEpisodeEnd > 0)
-                        {
+                            DebugHandler.TraceMessage("ANIME EPISODE IS CORRECT SEASON: " + pack.Value<string>("Episode"), DebugSource.TASK, DebugType.INFO);
                             if (pack.ContainsKey("Video_Resolution"))
                             {
                                 resolution = pack.Value<string>("Video_Resolution");
@@ -776,11 +733,16 @@ namespace LittleWeebLibrary.Handlers
                                 {
                                     if (int.TryParse(pack.Value<string>("Episode"), out episodeValue))
                                     {
-                                        if (episodeValue > previousEpisodeEnd)
-                                        {
-                                            resolutions.Add(resolution, new Dictionary<int, List<JObject>>() { { (episodeValue - previousEpisodeEnd), new List<JObject>() { pack } } });
-                                        }
+                                        resolutions.Add(resolution, new Dictionary<int, List<JObject>>() { { episodeValue, new List<JObject>() { pack } } });
                                     }
+                                    else
+                                    {
+                                        resolutions.Add(resolution, new Dictionary<int, List<JObject>>() { { episodeValue, new List<JObject>() { pack } } });
+                                    }
+                                }
+                                else
+                                {
+                                    resolutions.Add(resolution, new Dictionary<int, List<JObject>>() { { episodeValue, new List<JObject>() { pack } } });
                                 }
                             }
                             else
@@ -789,15 +751,80 @@ namespace LittleWeebLibrary.Handlers
                                 {
                                     if (int.TryParse(pack.Value<string>("Episode"), out episodeValue))
                                     {
-                                        if (episodeValue > previousEpisodeEnd)
+                                        if (resolutions[resolution].ContainsKey(episodeValue))
                                         {
-                                            if (resolutions[resolution].ContainsKey(episodeValue - previousEpisodeEnd))
+                                            resolutions[resolution][episodeValue].Add(pack);
+                                        }
+                                        else
+                                        {
+                                            resolutions[resolution].Add(episodeValue, new List<JObject>() { pack });
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if (resolutions[resolution].ContainsKey(episodeValue))
+                                        {
+                                            resolutions[resolution][episodeValue].Add(pack);
+                                        }
+                                        else
+                                        {
+                                            resolutions[resolution].Add(episodeValue, new List<JObject>() { pack });
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    if (resolutions[resolution].ContainsKey(episodeValue))
+                                    {
+                                        resolutions[resolution][episodeValue].Add(pack);
+                                    }
+                                    else
+                                    {
+                                        resolutions[resolution].Add(episodeValue, new List<JObject>() { pack });
+                                    }
+                                }
+                            }
+                        }
+                        else // not correct season
+                        {
+                            DebugHandler.TraceMessage("ANIME EPISODE IS *NOT* CORRECT SEASON: " + pack.Value<string>("Episode"), DebugSource.TASK, DebugType.INFO);
+                            if (previousEpisodeEnd > 0)
+                            {
+                                if (pack.ContainsKey("Video_Resolution"))
+                                {
+                                    resolution = pack.Value<string>("Video_Resolution");
+                                }
+
+                                int episodeValue = -1;
+                                if (!resolutions.ContainsKey(resolution))
+                                {
+                                    if (pack.ContainsKey("Episode"))
+                                    {
+                                        if (int.TryParse(pack.Value<string>("Episode"), out episodeValue))
+                                        {
+                                            if (episodeValue > previousEpisodeEnd)
                                             {
-                                                resolutions[resolution][(episodeValue - previousEpisodeEnd)].Add(pack);
+                                                resolutions.Add(resolution, new Dictionary<int, List<JObject>>() { { (episodeValue - previousEpisodeEnd), new List<JObject>() { pack } } });
                                             }
-                                            else
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    if (pack.ContainsKey("Episode"))
+                                    {
+                                        if (int.TryParse(pack.Value<string>("Episode"), out episodeValue))
+                                        {
+                                            if (episodeValue > previousEpisodeEnd)
                                             {
-                                                resolutions[resolution].Add((episodeValue - previousEpisodeEnd), new List<JObject>() { pack });
+                                                if (resolutions[resolution].ContainsKey(episodeValue - previousEpisodeEnd))
+                                                {
+                                                    resolutions[resolution][(episodeValue - previousEpisodeEnd)].Add(pack);
+                                                }
+                                                else
+                                                {
+                                                    resolutions[resolution].Add((episodeValue - previousEpisodeEnd), new List<JObject>() { pack });
+                                                }
                                             }
                                         }
                                     }
@@ -805,17 +832,23 @@ namespace LittleWeebLibrary.Handlers
                             }
                         }
                     }
-                }
+                    catch
+                    {
+
+                    }
+                   
+                });
+
             });
 
             return resolutions;
 
         }
 
-        private async Task<JArray> BotListPerResults(Dictionary<string, Dictionary<int, List<JObject>>> parsed)
+        private async Task<JObject> BotListPerResults(Dictionary<string, Dictionary<int, List<JObject>>> parsed)
         {
 
-            List<string> listWithBots = new List<string>();
+            Dictionary<string, int> listWithBots = new Dictionary<string, int>();
             await Task.Run(() =>
             {
                 foreach (KeyValuePair<string, Dictionary<int, List<JObject>>> resolution in parsed)
@@ -824,18 +857,22 @@ namespace LittleWeebLibrary.Handlers
                     {
                         foreach (JObject pack in episode.Value)
                         {
-                            if (!listWithBots.Contains(pack.Value<string>("BotName")))
+                            if (!listWithBots.ContainsKey(pack.Value<string>("BotName")))
                             {
-                                listWithBots.Add(pack.Value<string>("BotName"));
+                                listWithBots.Add(pack.Value<string>("BotName"), 0);
+                            }
+                            else
+                            {
+                                listWithBots[pack.Value<string>("BotName")] = listWithBots[pack.Value<string>("BotName")] + 1;
                             }
                         }
                     }
                 }
             });           
-            return JArray.FromObject(listWithBots);
+            return JObject.FromObject(listWithBots);
         }
 
-        private async Task<JArray> CombineAnimeEpisodesParsedNiblResults(JArray result, Dictionary<string, Dictionary<int, List<JObject>>> parsedNiblResult)
+        private async Task<Tuple<JArray, Dictionary<string, int>>> CombineAnimeEpisodesParsedNiblResults(JArray result, Dictionary<string, Dictionary<int, List<JObject>>> parsedNiblResult)
         {
             DebugHandler.TraceMessage("CombineAnimeEpisodesParsedNiblResults called", DebugSource.TASK, DebugType.ENTRY_EXIT);
            // DebugHandler.TraceMessage("Anime Info: ", DebugSource.TASK, DebugType.PARAMETERS);
@@ -845,6 +882,9 @@ namespace LittleWeebLibrary.Handlers
             JArray new_anime_episodes = result;
 
             List<int> indexToRemove = new List<int>();
+
+
+            Dictionary<string, int> filesPerResolutions = new Dictionary<string, int>();
 
             await Task.Run(() =>
             {
@@ -861,9 +901,16 @@ namespace LittleWeebLibrary.Handlers
                         bool hasvalues = false;
                         foreach (KeyValuePair<string, Dictionary<int, List<JObject>>> resolution in parsedNiblResult)
                         {
+                            if (!filesPerResolutions.ContainsKey(resolution.Key))
+                            {
+                                filesPerResolutions.Add(resolution.Key, 0);
+                            }
                             if (resolution.Value.ContainsKey(episodeNumber))
                             {
+
                                 List<JObject> files = resolution.Value[episodeNumber];
+
+                                filesPerResolutions[resolution.Key] = filesPerResolutions[resolution.Key] + files.Count;
 
                                 JArray filesArray = JArray.FromObject(files);
 
@@ -893,8 +940,7 @@ namespace LittleWeebLibrary.Handlers
                 }
                 
             });
-
-            return new_anime_episodes;          
+            return Tuple.Create(new_anime_episodes, filesPerResolutions);
         }
 
         private async Task<JsonKitsuAnimeInfo> AnimeLatestEpisode(JsonKitsuAnimeInfo result)

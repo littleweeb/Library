@@ -16,11 +16,12 @@ namespace LittleWeebLibrary.Models
         public JObject anime_info { get; set; } = new JObject();
         public JArray anime_relations { get; set; } = new JArray();
         public JArray anime_episodes { get; set; } = new JArray();
+        public JObject anime_resolutions { get; set; } = new JObject();
         public JObject anime_latest_episode { get; set; } = new JObject();
         public JArray anime_categories { get; set; } = new JArray();
         public JArray anime_genres { get; set; } = new JArray();
         public JObject anime_rules { get; set; } = new JObject();
-        public JArray anime_bot_sources { get; set; } = new JArray();
+        public JObject anime_bot_sources { get; set; } = new JObject();
         public bool anime_stored { get; set; } = true;
         public string updated { get; set; } = StaticClasses.UtilityMethods.GetEpoch().ToString();
 #pragma warning restore IDE1006

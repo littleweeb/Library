@@ -233,11 +233,11 @@ namespace LittleWeebLibrary.Handlers
                     page = new JArray();
                     count = 0;
                 }
-                page.Add(episode);
                 count++;
+                page.Add(episode);
             }
 
-            if (episodes.Count < amountEpisodesPerPage)
+            if (episodes.Count <= amountEpisodesPerPage)
             {
                 episodePages.Add(page);
             }
