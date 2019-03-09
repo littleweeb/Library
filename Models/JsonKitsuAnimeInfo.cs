@@ -16,8 +16,8 @@ namespace LittleWeebLibrary.Models
         public JObject anime_info { get; set; } = new JObject();
         public JArray anime_relations { get; set; } = new JArray();
         public JArray anime_episodes { get; set; } = new JArray();
+        public JArray anime_downloads { get; set; } = new JArray();
         public JObject anime_resolutions { get; set; } = new JObject();
-        public JObject anime_latest_episode { get; set; } = new JObject();
         public JArray anime_categories { get; set; } = new JArray();
         public JArray anime_genres { get; set; } = new JArray();
         public JObject anime_rules { get; set; } = new JObject();

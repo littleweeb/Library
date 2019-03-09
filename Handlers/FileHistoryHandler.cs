@@ -4,6 +4,7 @@ using LittleWeebLibrary.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -22,11 +23,25 @@ namespace LittleWeebLibrary.Handlers
         private readonly IDebugHandler DebugHandler;
         private readonly IDataBaseHandler DataBaseHandler;
 
-        public FileHistoryHandler( IDataBaseHandler dataBaseHandler, IDebugHandler debugHandler)
+        public FileHistoryHandler(IDataBaseHandler dataBaseHandler, IDebugHandler debugHandler)
         {
             debugHandler.TraceMessage("Constructor Called", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
             DebugHandler = debugHandler;
             DataBaseHandler = dataBaseHandler;
+
+            Init();
+        }
+
+        public async void Init()
+        {
+            JObject downloaded_anime = await DataBaseHandler.GetJObject("downloads", "list_with_downloads");
+
+            if (downloaded_anime.Count == 0)
+            {
+                downloaded_anime = new JObject();
+                downloaded_anime["anime_with_downloads"] = new JArray();
+                await DataBaseHandler.StoreJObject("downloads", downloaded_anime, "list_with_downloads");
+            }
         }
 
         public async Task<bool> AddFileToFileHistory(JsonDownloadedInfo downloadInfo)
@@ -36,13 +51,22 @@ namespace LittleWeebLibrary.Handlers
             DebugHandler.TraceMessage(downloadInfo.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
 
             JObject current_anime = await DataBaseHandler.GetJObject("anime", "anime_id", downloadInfo.anime_id);
-            JObject current_anime_download_list = await DataBaseHandler.GetJObject("downloads", "anime_id", downloadInfo.anime_id);
+            //JObject current_anime_download_list = await DataBaseHandler.GetJObject("downloads", "anime_id", downloadInfo.anime_id);
+            JObject downloaded_anime = await DataBaseHandler.GetJObject("downloads", "list_with_downloads");
+            JArray current_anime_download_list = downloaded_anime.Value<JArray>("anime_with_downloads");
 
-            bool toreturn = false;
+            if (current_anime_download_list == null)
+            {
+                current_anime_download_list = new JArray();
+            }
+
+            bool toreturn = true;
 
             if (current_anime.Count > 0)
             {
-                JArray currentlydownloaded = current_anime.Value<JArray>("anime_episodes_downloads");
+                DebugHandler.TraceMessage("Found Anime with id: " + downloadInfo.anime_id, DebugSource.TASK, DebugType.INFO);
+
+                JArray currentlydownloaded = current_anime.Value<JArray>("anime_downloads");
 
                 foreach (JObject downloaded in currentlydownloaded) {
                     if (downloaded.Value<string>("id") == downloadInfo.id)
@@ -58,49 +82,21 @@ namespace LittleWeebLibrary.Handlers
 
                 if (toreturn)
                 {
-                    currentlydownloaded.Add(downloadInfo);
-                    current_anime["anime_episodes_downloads"] = currentlydownloaded;
+                    currentlydownloaded.Add(downloadInfo.ToJObject());
+                    current_anime["anime_downloads"] = currentlydownloaded;
 
-                    await DataBaseHandler.StoreJObject("anime", current_anime, downloadInfo.anime_id);
+                    await DataBaseHandler.UpdateJObject("anime", current_anime, downloadInfo.anime_id);
 
-                    if (current_anime_download_list.Count > 0)
+
+                    if (!current_anime_download_list.Contains(downloadInfo.anime_id))
                     {
-                        JArray currentDownloaded = current_anime_download_list.Value<JArray>("downloadHistorylist");
-
-                        foreach (JObject download in currentDownloaded)
-                        {
-                            if (download.Value<string>("id") == downloadInfo.id)
-                            {
-                                toreturn = false;
-                                break;
-                            }
-                            else
-                            {
-                                toreturn = true;
-                            }
-                        }
-
-                        if (toreturn)
-                        {
-                            currentDownloaded.Add(downloadInfo);
-                            current_anime_download_list["downloadHistorylist"] = currentDownloaded;
-                            await DataBaseHandler.StoreJObject("downloads", current_anime_download_list, downloadInfo.anime_id);
-                        }
+                        current_anime_download_list.Add(downloadInfo.anime_id);
                     }
-                    else
-                    {
-                        JsonDownloadedList downloadedList = new JsonDownloadedList()
-                        {
-                            anime_id = downloadInfo.anime_id,
-                            anime_cover = current_anime.Value<JObject>("anime_info").Value<JArray>("data")[0]["attributes"].Value<JObject>("coverImage"),
-                            anime_title = downloadInfo.anime_name
-                        };
 
-                        downloadedList.downloadHistorylist.Add(downloadInfo);
+                    downloaded_anime["anime_with_downloads"] = current_anime_download_list;
 
-                        await DataBaseHandler.StoreJObject("downloads", downloadedList.ToJObject(), downloadInfo.anime_id);
-                        toreturn = true;
-                    }
+                    await DataBaseHandler.UpdateJObject("downloads", downloaded_anime, "list_with_downloads");
+                   
                 }
               
             }
@@ -124,23 +120,19 @@ namespace LittleWeebLibrary.Handlers
             }
 
             JObject current_anime = await DataBaseHandler.GetJObject("anime", "anime_id", anime_id);
-            JObject current_anime_download_list = await DataBaseHandler.GetJObject("downloads", "anime_id", anime_id);
+            //JObject current_anime_download_list = await DataBaseHandler.GetJObject("downloads", "anime_id", downloadInfo.anime_id);
+            JObject downloaded_anime = await DataBaseHandler.GetJObject("downloads",  "list_with_downloads");
+            JArray current_anime_download_list = downloaded_anime.Value<JArray>("anime_with_downloads");
 
             bool found = false;
             if (current_anime.Count > 0)
             {
-                JArray currentlydownloaded = current_anime.Value<JArray>("anime_episodes_downloads");
+                JArray currentlydownloaded = current_anime.Value<JArray>("anime_downloads");
 
                 int indexToDelete = 0;
                 foreach (JObject downloaded in currentlydownloaded)
                 {
-                    if (downloaded.Value<string>("id") == id)
-                    {
-                        found = true;
-                        break;
-                    }
-
-                    if (downloaded.Value<string>("filepath") == id)
+                    if (downloaded.Value<string>("id") == id || downloaded.Value<string>("filepath") == filepath)
                     {
                         found = true;
                         break;
@@ -151,43 +143,20 @@ namespace LittleWeebLibrary.Handlers
                 if (found)
                 {
                     currentlydownloaded.RemoveAt(indexToDelete);
-                    current_anime["anime_episodes_downloads"] = currentlydownloaded;
+                    current_anime["anime_downloads"] = currentlydownloaded;
                     await DataBaseHandler.UpdateJObject("anime", current_anime, "anime_id", anime_id);
 
 
-                    if (current_anime_download_list.Count > 0)
+                    if (current_anime_download_list.Count == 0)
                     {
-                        JArray currentDownloaded = current_anime_download_list.Value<JArray>("downloadHistorylist");
-                        found = false;
-                        int index = 0;
-                        foreach (JObject downloaded in currentDownloaded)
+                        if (current_anime_download_list.Contains(anime_id))
                         {
-                            if (downloaded.Value<string>("id") == id)
-                            {
-                                found = true;
-                                break;
-                            }
+                            current_anime_download_list.Remove(anime_id);
 
-                            if (downloaded.Value<string>("filepath") == id)
-                            {
-                                found = true;
-                                break;
-                            }
-                            index++;
+                            downloaded_anime["anime_with_downloads"] = current_anime_download_list;
+
+                            await DataBaseHandler.UpdateJObject("downloads", downloaded_anime, "list_with_downloads");
                         }
-
-                        currentDownloaded.RemoveAt(index);
-
-                        if (currentDownloaded.Count > 0)
-                        {
-                            current_anime_download_list["downloadHistorylist"] = currentDownloaded;
-                            await DataBaseHandler.UpdateJObject("downloads", current_anime_download_list, anime_id);
-                        }
-                        else
-                        {
-                            await DataBaseHandler.RemoveJObject("downloads", anime_id);
-                        }
-
                     }
                 }
             }
@@ -201,11 +170,21 @@ namespace LittleWeebLibrary.Handlers
 
             DebugHandler.TraceMessage("GetCurrentFileHistory Called", DebugSource.TASK, DebugType.ENTRY_EXIT);
 
-            JArray listWithDownloads = await DataBaseHandler.GetCollection("downloads");
+            JObject downloaded_animes = await DataBaseHandler.GetJObject("downloads", "list_with_downloads");
+            JArray current_anime_download_list = downloaded_animes.Value<JArray>("anime_with_downloads");
+
+            List<JObject> downloaded = new List<JObject>();
+
+            foreach (string id in current_anime_download_list)
+            {
+                JObject downloaded_anime = await DataBaseHandler.GetJObject("anime", "anime_id", id);
+                downloaded.Add(downloaded_anime);
+            }
+
 
             JsonDownloadedList list = new JsonDownloadedList()
             {
-                downloadHistorylist = listWithDownloads
+                downloaded_anime = downloaded
             };
 
             return list;

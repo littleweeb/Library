@@ -216,9 +216,9 @@ namespace LittleWeebLibrary.Handlers
                     var loadDataTasks = new Task[]
                     { 
                         //parse all titles from the anime.
-                        Task.Run(async () => animeTitles= await ParseTitles(result)),
+                        Task.Run(() => animeTitles = ParseTitles(result)),
                         //get season number from title or from kitsu
-                        Task.Run(async () => seasonNumber = await GetSeasonFromAnime(result))
+                        Task.Run(() => seasonNumber = GetSeasonFromAnime(result))
                     };
 
                     try
@@ -233,11 +233,11 @@ namespace LittleWeebLibrary.Handlers
 
                     loadDataTasks = new Task[]
                     {
-                    //get total amount of episodes from previous seasons (excluding current season).
-                    Task.Run(async () => previousEpisodeEnd = await GetPreviousSeasonsTotalEpisodes(result, seasonNumber)),
+                        //get total amount of episodes from previous seasons (excluding current season).
+                        Task.Run(async () => previousEpisodeEnd = await GetPreviousSeasonsTotalEpisodes(result, seasonNumber)),
                 
-                    //search nibl
-                    Task.Run(async () => niblResults =  await NiblHandler.SearchNibl(animeTitles))
+                        //search nibl
+                        Task.Run(async () => niblResults =  await NiblHandler.SearchNibl(animeTitles))
                     };
                     try
                     {
@@ -256,7 +256,7 @@ namespace LittleWeebLibrary.Handlers
                     }
 
                     //check rules
-                    niblResults = await AnimeRuleHandler.FilterAnimeRules(niblResults, id);
+                    niblResults = await AnimeRuleHandler.FilterAnimeRules(niblResults, id, result.anime_rules);
 
 
                     DebugHandler.TraceMessage("NIBL RESULTS AFTER RULES: " + niblResults.Value<JArray>("packs").Count.ToString(), DebugSource.TASK, DebugType.ERROR);
@@ -420,7 +420,7 @@ namespace LittleWeebLibrary.Handlers
 
         }
         
-        private async Task<int> GetSeasonFromAnime(JsonKitsuAnimeInfo info)
+        private int GetSeasonFromAnime(JsonKitsuAnimeInfo info)
         {
 
             DebugHandler.TraceMessage("GetSeasonFromAnime called", DebugSource.TASK, DebugType.ENTRY_EXIT);
@@ -436,22 +436,20 @@ namespace LittleWeebLibrary.Handlers
                     seasonNumber = info.anime_episodes[0][0]["attributes"].Value<int>("seasonNumber");
                 }
 
-                await Task.Run(() =>
-                {
-                    Dictionary<string, string> parsedTitle = WeebFileNameParser.ParseFullString(info.anime_info["attributes"].Value<string>("canonicalTitle"));
+                
+                Dictionary<string, string> parsedTitle = WeebFileNameParser.ParseFullString(info.anime_info["attributes"].Value<string>("canonicalTitle"));
 
-                    if (parsedTitle.ContainsKey("Season"))
+                if (parsedTitle.ContainsKey("Season"))
+                {
+                    int parsedSeasonNumberFromTitle = -1;
+                    if (int.TryParse(parsedTitle["Season"], out parsedSeasonNumberFromTitle))
                     {
-                        int parsedSeasonNumberFromTitle = -1;
-                        if (int.TryParse(parsedTitle["Season"], out parsedSeasonNumberFromTitle))
+                        if (parsedSeasonNumberFromTitle > seasonNumber)
                         {
-                            if (parsedSeasonNumberFromTitle > seasonNumber)
-                            {
-                                seasonNumber = parsedSeasonNumberFromTitle;
-                            }
+                            seasonNumber = parsedSeasonNumberFromTitle;
                         }
                     }
-                });
+                }
             }
             
 
@@ -473,28 +471,26 @@ namespace LittleWeebLibrary.Handlers
             JArray tempRelated = info.anime_relations;
 
             bool has_prequal = false;
-            await Task.Run(async () =>
+           
+            while (tempSeasonNumber > 1)
             {
-                while (tempSeasonNumber > 1)
+                foreach (JObject relatedAnime in tempRelated)
                 {
-                    foreach (JObject relatedAnime in tempRelated)
+                    if (relatedAnime.Value<string>("role") == "prequel")
                     {
-                        if (relatedAnime.Value<string>("role") == "prequel")
+
+                        previousEpisodeEnd += relatedAnime["attributes"].Value<int>("episodeCount");
+
+                        if ((tempSeasonNumber - 1) > 1)
                         {
-
-                            previousEpisodeEnd += relatedAnime["attributes"].Value<int>("episodeCount");
-
-                            if ((tempSeasonNumber - 1) > 1)
-                            {
-                                tempRelated = await KitsuHandler.GetRelations(relatedAnime.Value<string>("id"));
-                            }
-                            has_prequal = true;
-                            break;
+                            tempRelated = await KitsuHandler.GetRelations(relatedAnime.Value<string>("id"));
                         }
+                        has_prequal = true;
+                        break;
                     }
-                    tempSeasonNumber--;
                 }
-            });
+                tempSeasonNumber--;
+            }
 
             if (!has_prequal)
             {
@@ -511,7 +507,7 @@ namespace LittleWeebLibrary.Handlers
             return previousEpisodeEnd;
         }
 
-        private async Task<List<string>> ParseTitles(JsonKitsuAnimeInfo info)
+        private List<string> ParseTitles(JsonKitsuAnimeInfo info)
         {
             DebugHandler.TraceMessage("ParseTitles called", DebugSource.TASK, DebugType.ENTRY_EXIT);
   //          DebugHandler.TraceMessage("Anime Info: ", DebugSource.TASK, DebugType.PARAMETERS);
@@ -520,25 +516,98 @@ namespace LittleWeebLibrary.Handlers
             List<string> animeTitles = new List<string>();
 
             JObject titles = info.anime_info["attributes"].Value<JObject>("titles");
-
-            await Task.Run(() =>
+           
+            foreach (KeyValuePair<string, JToken> title in titles)
             {
-                foreach (KeyValuePair<string, JToken> title in titles)
-                {
 
-                    if (!animeTitles.Contains(title.Value.ToString()))
+                if (!animeTitles.Contains(title.Value.ToString()))
+                {
+                    Dictionary<string, string> parsed = WeebFileNameParser.ParseFullString(title.Value.ToString());
+                    parsed["MainAnimeTitle"] = UtilityMethods.RemoveSpecialCharacters(parsed["MainAnimeTitle"]).Trim();
+                    parsed["SubAnimeTitle"] = UtilityMethods.RemoveSpecialCharacters(parsed["SubAnimeTitle"]).Trim();
+
+                    DebugHandler.TraceMessage("1: Removing special chars from title: " + title.Value.ToString().ToLower(), DebugSource.TASK, DebugType.INFO);
+                    string titleparsed = UtilityMethods.RemoveSpecialCharacters(title.Value.ToString().ToLower()).Trim();
+
+                    if (titleparsed.Trim().Length > 3 && title.Key != "ja_jp")
                     {
-                        Dictionary<string, string> parsed = WeebFileNameParser.ParseFullString(title.Value.ToString());
+                        bool parsedSeason = false;
+                        if (parsed.ContainsKey("Season"))
+                        {
+                            if (int.Parse(parsed["Season"]) > 1)
+                            {
+                                if (!animeTitles.Contains(parsed["MainAnimeTitle"] + " " + UtilityMethods.IntToRoman(int.Parse(parsed["Season"]))))
+                                {
+                                    DebugHandler.TraceMessage("Added Title: " + parsed["MainAnimeTitle"] + " " + UtilityMethods.IntToRoman(int.Parse(parsed["Season"])), DebugSource.TASK, DebugType.INFO);
+                                    animeTitles.Add(parsed["MainAnimeTitle"] + " " + UtilityMethods.IntToRoman(int.Parse(parsed["Season"])));
+                                }
+
+                                if (!animeTitles.Contains(parsed["MainAnimeTitle"] + " s" + parsed["Season"]))
+                                {
+                                    DebugHandler.TraceMessage("Added Title: " + parsed["MainAnimeTitle"] + " s" + parsed["Season"], DebugSource.TASK, DebugType.INFO);
+                                    animeTitles.Add(parsed["MainAnimeTitle"] + " s" + parsed["Season"]);
+                                }
+
+                                if (!animeTitles.Contains(parsed["MainAnimeTitle"] + " season " + parsed["Season"]))
+                                {
+                                    DebugHandler.TraceMessage("Added Title: " + parsed["MainAnimeTitle"] + " season " + parsed["Season"], DebugSource.TASK, DebugType.INFO);
+                                    animeTitles.Add(parsed["MainAnimeTitle"] + " season " + parsed["Season"]);
+                                }
+                                parsedSeason = true;
+                            }
+                        }
+
+                        if (!parsedSeason)
+                        {
+                            if (parsed.ContainsKey("SubAnimeTitle"))
+                            {
+                                titleparsed = parsed["MainAnimeTitle"].Trim() + " " +  parsed["SubAnimeTitle"].Trim();
+
+                                if (!animeTitles.Contains(parsed["MainAnimeTitle"]))
+                                {
+                                    DebugHandler.TraceMessage("Added Title: " + parsed["MainAnimeTitle"], DebugSource.TASK, DebugType.ENTRY_EXIT);
+                                    animeTitles.Add(parsed["MainAnimeTitle"]);
+                                }
+
+                                if (!animeTitles.Contains(titleparsed) && parsed["SubAnimeTitle"].Length > 2) // last part of anime title must be longer than 2 chars to be significant.
+                                {
+                                    DebugHandler.TraceMessage("Added Title: " + titleparsed, DebugSource.TASK, DebugType.ENTRY_EXIT);
+                                    animeTitles.Add(titleparsed);
+                                }
+
+                            }
+                        }
+                        else
+                        {
+
+                        }
+                        animeTitles.Add(title.Value.ToString());
+
+                    }
+                }
+                   
+            }
+
+            if (info.anime_info["attributes"].Value<JArray>("abbreviatedTitles") != null)
+            {
+                foreach (string title in info.anime_info["attributes"].Value<JArray>("abbreviatedTitles"))
+                {
+                    if (!animeTitles.Contains(title))
+                    {
+
+                        Dictionary<string, string> parsed = WeebFileNameParser.ParseFullString(title);
+
+                        DebugHandler.TraceMessage("2: Removing special chars from title: " + title.ToLower(), DebugSource.TASK, DebugType.INFO);
+                        string titleparsed = UtilityMethods.RemoveSpecialCharacters(title.ToLower()).Trim();
+
                         parsed["MainAnimeTitle"] = UtilityMethods.RemoveSpecialCharacters(parsed["MainAnimeTitle"]).Trim();
                         parsed["SubAnimeTitle"] = UtilityMethods.RemoveSpecialCharacters(parsed["SubAnimeTitle"]).Trim();
 
-                        DebugHandler.TraceMessage("1: Removing special chars from title: " + title.Value.ToString().ToLower(), DebugSource.TASK, DebugType.INFO);
-                        string titleparsed = UtilityMethods.RemoveSpecialCharacters(title.Value.ToString().ToLower()).Trim();
-
-                        if (titleparsed.Length > 2 && title.Key != "ja_jp")                        {
-
+                        if (titleparsed.Trim().Length > 3)
+                        {
 
                             bool parsedSeason = false;
+
                             if (parsed.ContainsKey("Season"))
                             {
                                 if (int.Parse(parsed["Season"]) > 1)
@@ -551,24 +620,26 @@ namespace LittleWeebLibrary.Handlers
 
                                     if (!animeTitles.Contains(parsed["MainAnimeTitle"] + " s" + parsed["Season"]))
                                     {
-                                        DebugHandler.TraceMessage("Added Title: " + parsed["MainAnimeTitle"] + " s" + parsed["Season"], DebugSource.TASK, DebugType.INFO);
+                                        DebugHandler.TraceMessage("Added Title: " + parsed["MainAnimeTitle"] + " s" + parsed["Season"], DebugSource.TASK, DebugType.ENTRY_EXIT);
                                         animeTitles.Add(parsed["MainAnimeTitle"] + " s" + parsed["Season"]);
                                     }
 
                                     if (!animeTitles.Contains(parsed["MainAnimeTitle"] + " season " + parsed["Season"]))
                                     {
-                                        DebugHandler.TraceMessage("Added Title: " + parsed["MainAnimeTitle"] + " season " + parsed["Season"], DebugSource.TASK, DebugType.INFO);
+                                        DebugHandler.TraceMessage("Added Title: " + parsed["MainAnimeTitle"] + " season " + parsed["Season"], DebugSource.TASK, DebugType.ENTRY_EXIT);
                                         animeTitles.Add(parsed["MainAnimeTitle"] + " season " + parsed["Season"]);
                                     }
                                     parsedSeason = true;
                                 }
                             }
 
+
                             if (!parsedSeason)
                             {
                                 if (parsed.ContainsKey("SubAnimeTitle"))
                                 {
                                     titleparsed = parsed["MainAnimeTitle"] + parsed["SubAnimeTitle"];
+
 
                                     if (!animeTitles.Contains(parsed["MainAnimeTitle"]))
                                     {
@@ -581,96 +652,17 @@ namespace LittleWeebLibrary.Handlers
                                         DebugHandler.TraceMessage("Added Title: " + titleparsed, DebugSource.TASK, DebugType.ENTRY_EXIT);
                                         animeTitles.Add(titleparsed);
                                     }
-
                                 }
-                            }
-                            else
-                            {
 
                             }
-                            animeTitles.Add(title.Value.ToString());
 
+                            animeTitles.Add(title);
                         }
+
                     }
-                   
-                }
-
-                if (info.anime_info["attributes"].Value<JArray>("abbreviatedTitles") != null)
-                {
-                    foreach (string title in info.anime_info["attributes"].Value<JArray>("abbreviatedTitles"))
-                    {
-                        if (!animeTitles.Contains(title))
-                        {
-
-                            Dictionary<string, string> parsed = WeebFileNameParser.ParseFullString(title);
-
-                            DebugHandler.TraceMessage("2: Removing special chars from title: " + title.ToLower(), DebugSource.TASK, DebugType.INFO);
-                            string titleparsed = UtilityMethods.RemoveSpecialCharacters(title.ToLower()).Trim();
-
-                            parsed["MainAnimeTitle"] = UtilityMethods.RemoveSpecialCharacters(parsed["MainAnimeTitle"]).Trim();
-                            parsed["SubAnimeTitle"] = UtilityMethods.RemoveSpecialCharacters(parsed["SubAnimeTitle"]).Trim();
-
-                            if (titleparsed.Length > 2)
-                            {
-
-                                bool parsedSeason = false;
-
-                                if (parsed.ContainsKey("Season"))
-                                {
-                                    if (int.Parse(parsed["Season"]) > 1)
-                                    {
-                                        if (!animeTitles.Contains(parsed["MainAnimeTitle"] + " " + UtilityMethods.IntToRoman(int.Parse(parsed["Season"]))))
-                                        {
-                                            DebugHandler.TraceMessage("Added Title: " + parsed["MainAnimeTitle"] + " " + UtilityMethods.IntToRoman(int.Parse(parsed["Season"])), DebugSource.TASK, DebugType.INFO);
-                                            animeTitles.Add(parsed["MainAnimeTitle"] + " " + UtilityMethods.IntToRoman(int.Parse(parsed["Season"])));
-                                        }
-
-                                        if (!animeTitles.Contains(parsed["MainAnimeTitle"] + " s" + parsed["Season"]))
-                                        {
-                                            DebugHandler.TraceMessage("Added Title: " + parsed["MainAnimeTitle"] + " s" + parsed["Season"], DebugSource.TASK, DebugType.ENTRY_EXIT);
-                                            animeTitles.Add(parsed["MainAnimeTitle"] + " s" + parsed["Season"]);
-                                        }
-
-                                        if (!animeTitles.Contains(parsed["MainAnimeTitle"] + " season " + parsed["Season"]))
-                                        {
-                                            DebugHandler.TraceMessage("Added Title: " + parsed["MainAnimeTitle"] + " season " + parsed["Season"], DebugSource.TASK, DebugType.ENTRY_EXIT);
-                                            animeTitles.Add(parsed["MainAnimeTitle"] + " season " + parsed["Season"]);
-                                        }
-                                        parsedSeason = true;
-                                    }
-                                }
-
-
-                                if (!parsedSeason)
-                                {
-                                    if (parsed.ContainsKey("SubAnimeTitle"))
-                                    {
-                                        titleparsed = parsed["MainAnimeTitle"] + parsed["SubAnimeTitle"];
-
-
-                                        if (!animeTitles.Contains(parsed["MainAnimeTitle"]))
-                                        {
-                                            DebugHandler.TraceMessage("Added Title: " + parsed["MainAnimeTitle"], DebugSource.TASK, DebugType.ENTRY_EXIT);
-                                            animeTitles.Add(parsed["MainAnimeTitle"]);
-                                        }
-
-                                        if (!animeTitles.Contains(titleparsed) && parsed["SubAnimeTitle"].Length > 2) // last part of anime title must be longer than 2 chars to be significant.
-                                        {
-                                            DebugHandler.TraceMessage("Added Title: " + titleparsed, DebugSource.TASK, DebugType.ENTRY_EXIT);
-                                            animeTitles.Add(titleparsed);
-                                        }
-                                    }
-
-                                }
-
-                                animeTitles.Add(title);
-                            }
-
-                        }
                        
-                    }
                 }
-            });          
+            }   
 
             return animeTitles;
         }
@@ -720,7 +712,7 @@ namespace LittleWeebLibrary.Handlers
 
                         if (correctSeason || seasonNumber < 0)
                         {
-                            DebugHandler.TraceMessage("ANIME EPISODE IS CORRECT SEASON: " + pack.Value<string>("Episode"), DebugSource.TASK, DebugType.INFO);
+                           // DebugHandler.TraceMessage("ANIME EPISODE IS CORRECT SEASON: " + pack.Value<string>("Episode"), DebugSource.TASK, DebugType.INFO);
                             if (pack.ContainsKey("Video_Resolution"))
                             {
                                 resolution = pack.Value<string>("Video_Resolution");
@@ -787,7 +779,7 @@ namespace LittleWeebLibrary.Handlers
                         }
                         else // not correct season
                         {
-                            DebugHandler.TraceMessage("ANIME EPISODE IS *NOT* CORRECT SEASON: " + pack.Value<string>("Episode"), DebugSource.TASK, DebugType.INFO);
+                           // DebugHandler.TraceMessage("ANIME EPISODE IS *NOT* CORRECT SEASON: " + pack.Value<string>("Episode"), DebugSource.TASK, DebugType.INFO);
                             if (previousEpisodeEnd > 0)
                             {
                                 if (pack.ContainsKey("Video_Resolution"))
@@ -960,57 +952,26 @@ namespace LittleWeebLibrary.Handlers
 
             if (result.anime_info["attributes"].Value<string>("status") == "current")
             {
-                List<string> animeTitles = await ParseTitles(result);
+                List<string> animeTitles = ParseTitles(result);
                 int seasonNumber = -1;
-                int previousEpisodeEnd = -1;
                 JObject niblResults = new JObject();
 
                 try
                 {
-                    seasonNumber = await GetSeasonFromAnime(result);
+                    seasonNumber = GetSeasonFromAnime(result);
+                    JObject resultNibl = await NiblHandler.SearchNibl(animeTitles, -1, "episodeNumber", "DESC").ConfigureAwait(false);
+                    int currentLatestEpisode = GetLatestEpisodeNumberFromNiblResults(resultNibl.ToObject<JObject>(), seasonNumber);
                     DebugHandler.TraceMessage("FINISHED GET SEASING NUMBER: " + seasonNumber.ToString(), DebugSource.TASK, DebugType.INFO);
+                    DebugHandler.TraceMessage("FINISHED GETTING LATEST EPISODE NUMBER FROM NIBL " + currentLatestEpisode.ToString(), DebugSource.TASK, DebugType.INFO);
+                    result.anime_total_episodes = currentLatestEpisode;
+                    result.anime_total_episode_pages = (int)Math.Ceiling(((double)((currentLatestEpisode) / (double)20))) - 1;
+                    return result;
                 }
                 catch (Exception ex)
                 {
                     DebugHandler.TraceMessage("FAILED RUNNING DATA GATHERING TASK (GetSeasonFromAnime) ASYNC: " + ex.ToString(), DebugSource.TASK, DebugType.ERROR);
-                    // handle exception
+                    return result;
                 }
-
-                previousEpisodeEnd = await GetPreviousSeasonsTotalEpisodes(result, seasonNumber);
-
-                int currentLatestEpisode = 0;
-                JObject resultNibl = new JObject();
-
-                foreach (string title in animeTitles)
-                {
-                    int episodeNumber = await NiblHandler.GetLatestEpisode(title);
-                    if (episodeNumber > currentLatestEpisode)
-                    {
-                        currentLatestEpisode = episodeNumber;
-                    }
-                }
-                DebugHandler.TraceMessage("FINISHED GETTING LATEST EPISODE NUMBER FROM NIBL " + currentLatestEpisode.ToString(), DebugSource.TASK, DebugType.INFO);
-
-
-                resultNibl = await NiblHandler.SearchNibl(animeTitles, currentLatestEpisode);
-                DebugHandler.TraceMessage("Nibl result latest episode: " + resultNibl.ToString(), DebugSource.TASK, DebugType.INFO);
-
-                DebugHandler.TraceMessage("Nibl result latest episode done: " + resultNibl.ToString(), DebugSource.TASK, DebugType.INFO);
-                Dictionary<string, Dictionary<int, List<JObject>>> parsedNibl =  await ParseNiblSearchResults(resultNibl, previousEpisodeEnd, seasonNumber);
-
-                JObject files = new JObject
-                {
-                    ["files"] = JObject.FromObject(parsedNibl)
-                };
-
-                JObject latestKitsuEpisode = await KitsuHandler.GetEpisode(result.anime_id, currentLatestEpisode);
-
-                latestKitsuEpisode.Merge(files);
-                result.anime_latest_episode = latestKitsuEpisode;
-
-                result.anime_total_episodes = currentLatestEpisode;
-                result.anime_total_episode_pages = (int)Math.Ceiling(((double)((currentLatestEpisode) / (double)20) )) - 1;
-
             }
 
             return result;
@@ -1036,6 +997,41 @@ namespace LittleWeebLibrary.Handlers
             }
 
             return latestAiringKitsuUnordered;
+        }
+
+        private int GetLatestEpisodeNumberFromNiblResults(JObject result, int season)
+        {
+            JArray listWithPacks = result.Value<JArray>("packs");
+            int largest = 0;
+           
+            foreach (JObject pack in listWithPacks.Children())
+            {
+                Dictionary<string, string> info = WeebFileNameParser.ParseFullString(pack.Value<string>("name"));
+
+                if (season != -1)
+                {
+                    if (info.ContainsKey("Season"))
+                    {
+                        if (int.Parse(info["Season"]) == season)
+                        {
+                            if (pack.Value<int>("episodeNumber") > largest)
+                            {
+                                largest = pack.Value<int>("episodeNumber");
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    if (pack.Value<int>("episodeNumber") > largest)
+                    {
+                        largest = pack.Value<int>("episodeNumber");
+                    }
+                }
+            }
+
+           
+            return largest;
         }
 
     }

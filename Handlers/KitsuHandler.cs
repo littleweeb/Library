@@ -516,11 +516,11 @@ namespace LittleWeebLibrary.Handlers
             DebugHandler.TraceMessage("URL: " + url, DebugSource.TASK, DebugType.PARAMETERS);
             using (HttpClient client = new HttpClient())
             {
-                HttpResponseMessage response = await client.GetAsync("https://kitsu.io/api/edge/" + url);
+                HttpResponseMessage response = await client.GetAsync("https://kitsu.io/api/edge/" + url).ConfigureAwait(false);
 
                 if (response.IsSuccessStatusCode)
                 {
-                    return await response.Content.ReadAsStringAsync();
+                    return await response.Content.ReadAsStringAsync().ConfigureAwait(false); ;
                 }
                 else
                 {

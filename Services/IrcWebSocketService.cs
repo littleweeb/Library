@@ -307,36 +307,41 @@ namespace LittleWeebLibrary.Services
         private async void OnIrcClientConnectionStatusEvent(object sender, IrcClientConnectionStatusArgs args)
         {
             DebugHandler.TraceMessage("OnIrcClientConnectionStatusEvent called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
-            DebugHandler.TraceMessage(args.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
 
-
-            IsIrcConnected = args.Connected;
-
-            try
+            if (args != null)
             {
-                JsonIrcInfo update = new JsonIrcInfo()
-                {
-                    connected = args.Connected,
-                    channel = args.CurrentIrcSettings.Channels,
-                    server = args.CurrentIrcSettings.ServerAddress,
-                    user = args.CurrentIrcSettings.UserName,
-                    fullfilepath= args.CurrentIrcSettings.fullfilepath
-                };
+                DebugHandler.TraceMessage(args.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
 
-                await WebSocketHandler.SendMessage(update.ToJson());
-            }
-            catch (Exception e)
-            {
-                DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.ERROR);
-                JsonError error = new JsonError()
+
+                IsIrcConnected = args.Connected;
+
+                try
                 {
-                    type = "irc_status_error",
-                    errormessage = "Error on sending irc status update to client.",
-                    errortype = "exception",
-                    exception = e.ToString()
-                };
-                await WebSocketHandler.SendMessage(error.ToJson());
+                    JsonIrcInfo update = new JsonIrcInfo()
+                    {
+                        connected = args.Connected,
+                        channel = args.CurrentIrcSettings.Channels,
+                        server = args.CurrentIrcSettings.ServerAddress,
+                        user = args.CurrentIrcSettings.UserName,
+                        fullfilepath = args.CurrentIrcSettings.fullfilepath
+                    };
+
+                    await WebSocketHandler.SendMessage(update.ToJson());
+                }
+                catch (Exception e)
+                {
+                    DebugHandler.TraceMessage(e.ToString(), DebugSource.TASK, DebugType.ERROR);
+                    JsonError error = new JsonError()
+                    {
+                        type = "irc_status_error",
+                        errormessage = "Error on sending irc status update to client.",
+                        errortype = "exception",
+                        exception = e.ToString()
+                    };
+                    await WebSocketHandler.SendMessage(error.ToJson());
+                }
             }
+          
         }
 
         public void SetIrcSettings(IrcSettings settings)

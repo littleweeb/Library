@@ -70,7 +70,7 @@ namespace LittleWeebLibrary
             DownloadHandler =       new DownloadHandler(IrcClientHandler, FileHistoryHandler, FileHandler, DebugHandler);
             KitsuHandler =          new KitsuHandler(DebugHandler);
             NiblHandler =           new NiblHandler(KitsuHandler, DebugHandler);
-            AnimeRuleHandler =      new AnimeRuleHandler(DataBaseHandler, DebugHandler);
+            AnimeRuleHandler =      new AnimeRuleHandler(DataBaseHandler, NiblHandler, DebugHandler);
             AnimeProfileHandler =   new AnimeProfileHandler(KitsuHandler, NiblHandler, DataBaseHandler, AnimeRuleHandler, DebugHandler);
 
             //Services

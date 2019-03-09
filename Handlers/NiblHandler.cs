@@ -53,7 +53,9 @@ namespace LittleWeebLibrary.Handlers
 
                 Dictionary<int, string> botVsId = new Dictionary<int, string>();
 
-                foreach (JObject bot in result.Value<JArray>("content"))
+
+                JObject[] array = result.Value<JArray>("content").ToObject<JObject[]>();
+                Parallel.ForEach(array, (bot) =>
                 {
                     string name = bot.Value<string>("name");
                     int id = bot.Value<int>("id");
@@ -66,7 +68,7 @@ namespace LittleWeebLibrary.Handlers
                     {
                         DebugHandler.TraceMessage("Could not add BOT: " + name + " with id : " + id + ", id already exists!", DebugSource.TASK, DebugType.WARNING);
                     }
-                }
+                });
 
                 return JObject.FromObject(botVsId);
             }
@@ -92,19 +94,19 @@ namespace LittleWeebLibrary.Handlers
 
                 List<Dictionary<string, string>> listWithPacks = new List<Dictionary<string, string>>();
 
-                JArray array = result.Value<JArray>("content");        
+                JObject[] array = result.Value<JArray>("content").ToObject<JObject[]>();
 
                 try
                 {
-                    foreach (JObject pack in array.Children())
+                    Parallel.ForEach(array, (pack) =>
                     {
                         Dictionary<string, string> info = WeebFileNameParser.ParseFullString(pack.Value<string>("name"));
-                        info.Add("BotName",  bots.Value<string>(pack.Value<string>("botId")));
+                        info.Add("BotName", bots.Value<string>(pack.Value<string>("botId")));
                         info.Add("PackNumber", pack.Value<string>("number"));
                         info.Add("FullFileName", pack.Value<string>("name"));
-                        info.Add("FileSize", pack.Value<long>("sizekbits").ToString());
+                        info.Add("FileSize", (long.Parse(pack.Value<long>("sizekbits").ToString())/1024).ToString());
                         listWithPacks.Add(info);
-                    }
+                    });
                 }
                 catch(Exception e)
                 {
@@ -139,16 +141,16 @@ namespace LittleWeebLibrary.Handlers
                 {
                     JObject bots = await GetBotList();
                     JObject result = JObject.Parse(searchresult);
-                    JArray array = result.Value<JArray>("content");
-                    foreach (JObject pack in array.Children())
+                    JObject[] array = result.Value<JArray>("content").ToObject<JObject[]>();
+                    Parallel.ForEach(array, (pack) =>
                     {
                         Dictionary<string, string> info = WeebFileNameParser.ParseFullString(pack.Value<string>("name"));
                         info.Add("BotName", bots.Value<string>(pack.Value<string>("botId")));
                         info.Add("PackNumber", pack.Value<string>("number"));
                         info.Add("FullFileName", pack.Value<string>("name"));
-                        info.Add("FileSize", pack.Value<long>("sizekbits").ToString());
+                        info.Add("FileSize", (long.Parse(pack.Value<long>("sizekbits").ToString()) / 1024).ToString());
                         listWithPacks.Add(info);
-                    }
+                    });
                 }
                 catch (Exception e)
                 {
@@ -165,7 +167,7 @@ namespace LittleWeebLibrary.Handlers
             List<string> urls = new List<string>();
             foreach(string searchquery in query)
             {
-                if (episode > 0)
+                if (episode > -1)
                 {
                     urls.Add("search/page?query=" + searchquery + "&size=4000&sort=" + sort + "&direction=" + order + "&episodeNumber=" + episode.ToString());
                 }
@@ -193,18 +195,20 @@ namespace LittleWeebLibrary.Handlers
             }
 
             JObject bots = await GetBotList();
-            JArray array = result.Value<JArray>("content");
+            JObject[] array = result.Value<JArray>("content").ToObject<JObject[]>();
 
             List<Dictionary<string, string>> listWithPacks = new List<Dictionary<string, string>>();
-            foreach (JObject pack in array.Children())
+
+
+            Parallel.ForEach(array, (pack) =>
             {
                 Dictionary<string, string> info = WeebFileNameParser.ParseFullString(pack.Value<string>("name"));
                 info.Add("BotName", bots.Value<string>(pack.Value<string>("botId")));
                 info.Add("PackNumber", pack.Value<string>("number"));
                 info.Add("FullFileName", pack.Value<string>("name"));
-                info.Add("FileSize", pack.Value<long>("sizekbits").ToString());
+                info.Add("FileSize", (long.Parse(pack.Value<long>("sizekbits").ToString()) / 1024).ToString());
                 listWithPacks.Add(info);
-            }
+            });
 
             DebugHandler.TraceMessage("Search query: " + query + " Succeeded. Total Results: " + array.Count(), DebugSource.TASK, DebugType.INFO);
             return JObject.Parse("{\"packs\":" + JsonConvert.SerializeObject(listWithPacks) + " }");
@@ -240,10 +244,10 @@ namespace LittleWeebLibrary.Handlers
                 try
                 {
                     JObject result = JObject.Parse(searchresult);
-                    JArray array = result.Value<JArray>("content");
+                    JObject[] array = result.Value<JArray>("content").ToObject<JObject[]>();
 
                     int largest = 0;
-                    foreach (JObject pack in array.Children())
+                    Parallel.ForEach(array, (pack) =>
                     {
                         Dictionary<string, string> info = WeebFileNameParser.ParseFullString(pack.Value<string>("name"));
 
@@ -267,7 +271,7 @@ namespace LittleWeebLibrary.Handlers
                                 largest = pack.Value<int>("episodeNumber");
                             }
                         }
-                    }
+                    });
 
                     int episodeNumber = largest;
                     return episodeNumber;
@@ -288,11 +292,11 @@ namespace LittleWeebLibrary.Handlers
             DebugHandler.TraceMessage("URL: " + url, DebugSource.TASK, DebugType.PARAMETERS);
             using (HttpClient client = new HttpClient())
             {
-                HttpResponseMessage response = await client.GetAsync("https://api.nibl.co.uk:8080/nibl/" + url);
+                HttpResponseMessage response = await client.GetAsync("https://api.nibl.co.uk:8080/nibl/" + url).ConfigureAwait(false);
 
                 if (response.IsSuccessStatusCode)
                 {
-                    return await response.Content.ReadAsStringAsync();
+                    return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 }
                 else
                 {

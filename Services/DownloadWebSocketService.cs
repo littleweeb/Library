@@ -73,23 +73,7 @@ namespace LittleWeebLibrary.Services
                     
             try
             {
-                JsonDownloadInfo downloadInfo = new JsonDownloadInfo()
-                {
-
-                    anime_id = downloadJson.Value<JObject>("animeInfo").Value<string>("animeid"),
-                    anime_name = downloadJson.Value<JObject>("animeInfo").Value<string>("title"),
-                    id = downloadJson.Value<string>("id"),
-                    episodeNumber = downloadJson.Value<string>("episodeNumber"),
-                    season = downloadJson.Value<string>("season"),
-                    pack = downloadJson.Value<string>("pack"),
-                    bot = downloadJson.Value<string>("bot"),
-                    fullfilepath= downloadJson.Value<string>("dir"),
-                    filename = downloadJson.Value<string>("filename"),
-                    progress = downloadJson.Value<string>("progress"),
-                    speed = downloadJson.Value<string>("speed"),
-                    status = downloadJson.Value<string>("status"),
-                    filesize = downloadJson.Value<string>("filesize")
-                };
+                JsonDownloadInfo downloadInfo = downloadJson.ToObject<JsonDownloadInfo>();
 
                 LastDownloadedInfo = downloadInfo;
 
@@ -166,7 +150,8 @@ namespace LittleWeebLibrary.Services
         public async Task GetCurrentFileHistory()
         {
             DebugHandler.TraceMessage("GetCurrentFileHistory called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
-            await WebSocketHandler.SendMessage(FileHistoryHandler.GetCurrentFileHistory().ToString());
+            JsonDownloadedList info = await FileHistoryHandler.GetCurrentFileHistory();
+            await WebSocketHandler.SendMessage(info.ToJObject().ToString());
         }
 
         public async Task  Openfullfilepath()

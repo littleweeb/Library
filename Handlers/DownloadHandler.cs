@@ -433,7 +433,7 @@ namespace LittleWeebLibrary.Handlers
                     foreach (JsonDownloadInfo downloadinfo in download)
                     {
                         DebugHandler.TraceMessage(downloadinfo.ToString(), DebugSource.TASK, DebugType.PARAMETERS);
-                        totalSizeNeeded += int.Parse(downloadinfo.filesize);
+                        totalSizeNeeded += long.Parse(downloadinfo.filesize);
                     }
 
                     if (UtilityMethods.GetFreeSpaceKbits(IrcSettings.fullfilepath) > totalSizeNeeded)

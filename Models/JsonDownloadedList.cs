@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Generic;
 
 namespace LittleWeebLibrary.Models
 {
@@ -8,10 +9,7 @@ namespace LittleWeebLibrary.Models
     {
 #pragma warning disable IDE1006
         public string type { get; set; } = "download_history_list";
-        public string anime_id { get; set; } = string.Empty;
-        public string anime_title { get; set; } = string.Empty;
-        public JObject anime_cover { get; set; } = new JObject();
-        public JArray downloadHistorylist { get; set; } = new JArray();
+        public List<JObject> downloaded_anime = new List<JObject>();
         public string updated { get; set; } = StaticClasses.UtilityMethods.GetEpoch().ToString();
 #pragma warning restore IDE1006
 

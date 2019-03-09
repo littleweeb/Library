@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace LittleWeebLibrary.Handlers
@@ -21,11 +22,16 @@ namespace LittleWeebLibrary.Handlers
         Task<bool> UpdateJObject(string collection, JObject toUpdate, string id = "", bool overwrite = false);
         Task<bool> RemoveJObject(string collection, string property, string value);
         Task<bool> RemoveJObject(string collection, string id = "");
+        void StopDataBaseHandler();
     }
+
     public class DataBaseHandler : IDataBaseHandler
     {
         private readonly IDebugHandler DebugHandler;
         private readonly string DataBasePath = "";
+        private bool StopDataBase = false;
+
+        private  List<Task> DbQueries = new List<Task>();
 
         public DataBaseHandler(IDebugHandler debugHandler)
         {
@@ -40,12 +46,46 @@ namespace LittleWeebLibrary.Handlers
                 {
                     Directory.CreateDirectory(DataBasePath);
                 }
+
+                DataBaseQueryHandler();
             }
             catch (Exception e)
             {
                 DebugHandler.TraceMessage("FAILED OPENING OR CREATING DATABASE!", DebugSource.CONSTRUCTOR, DebugType.ERROR);
                 DebugHandler.TraceMessage(e.ToString(), DebugSource.CONSTRUCTOR, DebugType.ERROR);
             }
+        }
+
+
+        async Task DataBaseQueryHandler()
+        {
+            DebugHandler.TraceMessage("DataBaseQueryHandler called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+            await Task.Run(async () =>
+            {
+                while (!StopDataBase)
+                {
+
+                    if (DbQueries.Count > 0)
+                    {
+                        DebugHandler.TraceMessage("Starting A Query", DebugSource.TASK, DebugType.ENTRY_EXIT);
+                        DbQueries[0].Start();
+                        DbQueries[0].Wait();
+                        DebugHandler.TraceMessage("Stopping A Query", DebugSource.TASK, DebugType.ENTRY_EXIT);
+
+                        Thread.Sleep(1);
+                        DbQueries.RemoveAt(0);
+                        DebugHandler.TraceMessage("Removed A Query", DebugSource.TASK, DebugType.ENTRY_EXIT);
+                    }
+                    Thread.Sleep(1);
+                }
+            });
+            DebugHandler.TraceMessage("DataBaseQueryHandler stopped.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+
+        }
+
+        public void StopDataBaseHandler()
+        {
+            StopDataBase = true;
         }
 
         public async Task<JArray> GetCollection(string collection)
@@ -56,25 +96,36 @@ namespace LittleWeebLibrary.Handlers
             string collectionPath = PortablePath.Combine(DataBasePath, collection);
             DebugHandler.TraceMessage("Collection Path: " + collectionPath, DebugSource.TASK, DebugType.INFO);
 
-            if (!Directory.Exists(collectionPath)) {
-                Directory.CreateDirectory(collectionPath);          
-            }
 
-            string[] jsonFiles = Directory.GetFiles(collectionPath);
-
-            JArray collectionlist = new JArray();
-
-            foreach (string path in jsonFiles)
+            Task<JArray> t = new Task<JArray>(() =>
             {
-                if (Path.GetExtension(path) == ".jzip") {
-                    byte[] data = await UtilityMethods.ReadBinaryFile(path);
-                    string content = await UtilityMethods.Unzip(data);
-                    JObject jObject = JObject.Parse(content);
-                    collectionlist.Add(jObject);
+                if (!Directory.Exists(collectionPath))
+                {
+                    Directory.CreateDirectory(collectionPath);
                 }
-            }
 
-            return collectionlist;            
+                string[] jsonFiles = Directory.GetFiles(collectionPath);
+
+                JArray collectionlist = new JArray();
+
+                foreach (string path in jsonFiles)
+                {
+                    if (Path.GetExtension(path) == ".jzip")
+                    {
+                        byte[] data = UtilityMethods.ReadBinaryFile(path);
+                        string content = UtilityMethods.Unzip(data);
+                        JObject jObject = JObject.Parse(content);
+                        collectionlist.Add(jObject);
+                    }
+                }
+                return collectionlist;
+            });
+
+            DbQueries.Add(t);
+            await t;
+                       
+
+            return t.Result;            
         }
 
         public async Task<JObject> GetJObject(string collection, string id)
@@ -84,51 +135,54 @@ namespace LittleWeebLibrary.Handlers
             DebugHandler.TraceMessage("Collection: " + collection, DebugSource.TASK, DebugType.PARAMETERS);
             DebugHandler.TraceMessage("Id: " + id, DebugSource.TASK, DebugType.PARAMETERS);
 
-            JObject toReturn = new JObject();
-
-
-            string collectionPath = PortablePath.Combine(DataBasePath, collection);
-            DebugHandler.TraceMessage("Collection Path: " + collectionPath, DebugSource.TASK, DebugType.INFO);
-            string path = PortablePath.Combine(collectionPath, id + ".jzip");
-            DebugHandler.TraceMessage("Collection Path + File: " + path, DebugSource.TASK, DebugType.INFO);
-            try
+            Task<JObject> t = new Task<JObject>(() =>
             {
-                if (!Directory.Exists(collectionPath))
+                JObject toReturn = new JObject();
+                string collectionPath = PortablePath.Combine(DataBasePath, collection);
+                DebugHandler.TraceMessage("Collection Path: " + collectionPath, DebugSource.TASK, DebugType.INFO);
+                string path = PortablePath.Combine(collectionPath, id + ".jzip");
+                DebugHandler.TraceMessage("Collection Path + File: " + path, DebugSource.TASK, DebugType.INFO);
+                try
                 {
-                    Directory.CreateDirectory(collectionPath);
-                }
-                else
-                {
-
-                    if (File.Exists(path))
+                    if (!Directory.Exists(collectionPath))
                     {
-                        byte[] data = await UtilityMethods.ReadBinaryFile(path);
-                        string content = await UtilityMethods.Unzip(data);
-                        JObject jObject = JObject.Parse(content);
-                        toReturn = jObject;
+                        Directory.CreateDirectory(collectionPath);
                     }
                     else
                     {
-                        DebugHandler.TraceMessage("Failed to open file: " + path + ", file not found!", DebugSource.TASK, DebugType.ERROR);
-                    }                   
-                    
+
+                        if (File.Exists(path))
+                        {
+                            byte[] data = UtilityMethods.ReadBinaryFile(path);
+                            string content = UtilityMethods.Unzip(data);
+                            JObject jObject = JObject.Parse(content);
+                            toReturn = jObject;
+                        }
+                        else
+                        {
+                            DebugHandler.TraceMessage("Failed to open file: " + path + ", file not found!", DebugSource.TASK, DebugType.ERROR);
+                        }
+
+                    }
+
+
                 }
+                catch (IOException ioe)
+                {
+                    DebugHandler.TraceMessage("Failed to open file: " + path + ", error: " + ioe.ToString(), DebugSource.TASK, DebugType.ERROR);
+                }
+                catch (Exception e)
+                {
+                    DebugHandler.TraceMessage("Failed to open file: " + path + ", error: " + e.ToString(), DebugSource.TASK, DebugType.ERROR);
+                }
+                return toReturn;
 
-                
-            }
-            catch (IOException ioe)
-            {
-                DebugHandler.TraceMessage("Failed to open file: " + path + ", error: " + ioe.ToString(), DebugSource.TASK, DebugType.ERROR);
-            }
-            catch (Exception e)
-            {
-                DebugHandler.TraceMessage("Failed to open file: " + path + ", error: " + e.ToString(), DebugSource.TASK, DebugType.ERROR);
-            }
+            });
+            DbQueries.Add(t);
 
+            await t;
 
-            
-
-            return toReturn;
+            return t.Result;
         }
 
         public async Task<JObject> GetJObject(string collection, string property, string value)
@@ -138,51 +192,53 @@ namespace LittleWeebLibrary.Handlers
             DebugHandler.TraceMessage("Collection: " + collection, DebugSource.TASK, DebugType.PARAMETERS);
             DebugHandler.TraceMessage("Property: " + property, DebugSource.TASK, DebugType.PARAMETERS);
             DebugHandler.TraceMessage("Value: " + value, DebugSource.TASK, DebugType.PARAMETERS);
-
-            JObject toReturn = new JObject();
-
-            string collectionPath = PortablePath.Combine(DataBasePath, collection);
-            DebugHandler.TraceMessage("Collection Path: " + collectionPath, DebugSource.TASK, DebugType.INFO);
-            string pathparsing = "";
-            try
+            Task<JObject> t = new Task<JObject>(() =>
             {
-                if (!Directory.Exists(collectionPath))
+                JObject toReturn = new JObject();
+                string collectionPath = PortablePath.Combine(DataBasePath, collection);
+                DebugHandler.TraceMessage("Collection Path: " + collectionPath, DebugSource.TASK, DebugType.INFO);
+                string pathparsing = "";
+                try
                 {
-                    Directory.CreateDirectory(collectionPath);
-                }
-
-                string[] jsonFiles = Directory.GetFiles(collectionPath);
-
-                foreach (string path in jsonFiles)
-                {
-                    pathparsing = path;
-                    if (Path.GetExtension(path) == ".jzip")
+                    if (!Directory.Exists(collectionPath))
                     {
-                        byte[] data = await UtilityMethods.ReadBinaryFile(path);
-                        string content = await UtilityMethods.Unzip(data);
-                        JObject jObject = JObject.Parse(content);
+                        Directory.CreateDirectory(collectionPath);
+                    }
 
-                        if (jObject.Value<string>(property) == value)
+                    string[] jsonFiles = Directory.GetFiles(collectionPath);
+
+                    foreach (string path in jsonFiles)
+                    {
+                        pathparsing = path;
+                        if (Path.GetExtension(path) == ".jzip")
                         {
-                            toReturn = jObject;
-                            break;
+                            byte[] data = UtilityMethods.ReadBinaryFile(path);
+                            string content = UtilityMethods.Unzip(data);
+                            JObject jObject = JObject.Parse(content);
+
+                            if (jObject.Value<string>(property) == value)
+                            {
+                                toReturn = jObject;
+                                break;
+                            }
                         }
                     }
                 }
-            }
-            catch (IOException ioe)
-            {
-                DebugHandler.TraceMessage("Failed to open file: " + pathparsing + ", error: " + ioe.ToString(), DebugSource.TASK, DebugType.ERROR);
-            }
-            catch (Exception e)
-            {
-                DebugHandler.TraceMessage("Failed to open file: " + pathparsing + ", error: " + e.ToString(), DebugSource.TASK, DebugType.ERROR);
-            }
+                catch (IOException ioe)
+                {
+                    DebugHandler.TraceMessage("Failed to open file: " + pathparsing + ", error: " + ioe.ToString(), DebugSource.TASK, DebugType.ERROR);
+                }
+                catch (Exception e)
+                {
+                    DebugHandler.TraceMessage("Failed to open file: " + pathparsing + ", error: " + e.ToString(), DebugSource.TASK, DebugType.ERROR);
+                }
+                return toReturn;
+            });
 
+            DbQueries.Add(t);
+            await t;
 
-            
-
-            return toReturn;
+            return t.Result;
         }
 
         public async Task<bool> RemoveJObject(string collection, string id)
@@ -192,13 +248,13 @@ namespace LittleWeebLibrary.Handlers
             DebugHandler.TraceMessage("Collection: " + collection, DebugSource.TASK, DebugType.PARAMETERS);
             DebugHandler.TraceMessage("ID: " + id, DebugSource.TASK, DebugType.PARAMETERS);
 
-            string collectionPath = PortablePath.Combine(DataBasePath, collection);
-            DebugHandler.TraceMessage("Collection Path: " + collectionPath, DebugSource.TASK, DebugType.INFO);
-
-            bool toReturn = false;
-
-            await Task.Run(() =>
+            Task<bool> t = new Task<bool>(() =>
             {
+                string collectionPath = PortablePath.Combine(DataBasePath, collection);
+                DebugHandler.TraceMessage("Collection Path: " + collectionPath, DebugSource.TASK, DebugType.INFO);
+
+                bool toReturn = false;
+
                 if (Directory.Exists(collectionPath))
                 {
 
@@ -225,11 +281,14 @@ namespace LittleWeebLibrary.Handlers
                         DebugHandler.TraceMessage("Failed to remove file: " + toRemove + ", error: " + e.ToString(), DebugSource.TASK, DebugType.ERROR);
                     }
                 }
-            });
-           
-            
 
-            return toReturn;
+                return toReturn;
+            });
+            DbQueries.Add(t);
+
+            await t;
+
+            return t.Result;
         }
 
         public async Task<bool> RemoveJObject(string collection, string property, string value)
@@ -239,49 +298,54 @@ namespace LittleWeebLibrary.Handlers
             DebugHandler.TraceMessage("Collection: " + collection, DebugSource.TASK, DebugType.PARAMETERS);
             DebugHandler.TraceMessage("Property: " + property, DebugSource.TASK, DebugType.PARAMETERS);
             DebugHandler.TraceMessage("Value: " + value, DebugSource.TASK, DebugType.PARAMETERS);
-
-            string collectionPath = PortablePath.Combine(DataBasePath, collection);
-            DebugHandler.TraceMessage("Collection Path: " + collectionPath, DebugSource.TASK, DebugType.INFO);
-
-            bool toReturn = false;
-
-            if (Directory.Exists(collectionPath))
+            Task<bool> t = new Task<bool>(() =>
             {
-               
-                string toRemove = "";
-                try
+                string collectionPath = PortablePath.Combine(DataBasePath, collection);
+                DebugHandler.TraceMessage("Collection Path: " + collectionPath, DebugSource.TASK, DebugType.INFO);
+
+                bool toReturn = false;
+                if (Directory.Exists(collectionPath))
                 {
-                    string[] jsonFiles = Directory.GetFiles(collectionPath);
 
-                    foreach (string path in jsonFiles)
+                    string toRemove = "";
+                    try
                     {
-                        if (Path.GetExtension(path) == ".jzip")
-                        {
-                            byte[] data = await UtilityMethods.ReadBinaryFile(path);
-                            string content = await UtilityMethods.Unzip(data);
-                            JObject jObject = JObject.Parse(content);
+                        string[] jsonFiles = Directory.GetFiles(collectionPath);
 
-                            if (jObject.Value<string>(property) == value)
+                        foreach (string path in jsonFiles)
+                        {
+                            if (Path.GetExtension(path) == ".jzip")
                             {
-                                toReturn = true;
-                                toRemove = path;
-                                break;
+                                byte[] data = UtilityMethods.ReadBinaryFile(path);
+                                string content = UtilityMethods.Unzip(data);
+                                JObject jObject = JObject.Parse(content);
+
+                                if (jObject.Value<string>(property) == value)
+                                {
+                                    toReturn = true;
+                                    toRemove = path;
+                                    break;
+                                }
                             }
                         }
+                        File.Delete(toRemove);
                     }
-                    File.Delete(toRemove);
+                    catch (IOException ioe)
+                    {
+                        DebugHandler.TraceMessage("Failed to remove file: " + toRemove + ", error: " + ioe.ToString(), DebugSource.TASK, DebugType.ERROR);
+                    }
+                    catch (Exception e)
+                    {
+                        DebugHandler.TraceMessage("Failed to remove file: " + toRemove + ", error: " + e.ToString(), DebugSource.TASK, DebugType.ERROR);
+                    }
                 }
-                catch (IOException ioe)
-                {
-                    DebugHandler.TraceMessage("Failed to remove file: " + toRemove + ", error: " + ioe.ToString(), DebugSource.TASK, DebugType.ERROR);
-                }
-                catch (Exception e)
-                {
-                    DebugHandler.TraceMessage("Failed to remove file: " + toRemove + ", error: " + e.ToString(), DebugSource.TASK, DebugType.ERROR);
-                }
-            }
+                return toReturn;
+            });
+            DbQueries.Add(t);
 
-            return toReturn;
+            await t;
+
+            return t.Result;
         }
 
         public async Task<bool> StoreJObject(string collection, JObject toStore, string id = "")
@@ -290,43 +354,49 @@ namespace LittleWeebLibrary.Handlers
             DebugHandler.TraceMessage("StoreJObject called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
             DebugHandler.TraceMessage("Collection: " + collection, DebugSource.TASK, DebugType.PARAMETERS);
 
-
-             bool toReturn = false;
-
-            string collectionPath = PortablePath.Combine(DataBasePath, collection);
-
-            if (id == string.Empty)
+            Task<bool> t = new Task<bool>(() =>
             {
-                id = Guid.NewGuid().ToString("N");
-            }
+                bool toReturn = false;
+                string collectionPath = PortablePath.Combine(DataBasePath, collection);
 
-            DebugHandler.TraceMessage("Collection Path: " + collectionPath, DebugSource.TASK, DebugType.INFO);
-            string pathparsing = PortablePath.Combine(collectionPath, id + ".jzip");
-            try
-            {
-                if (!Directory.Exists(collectionPath))
+                if (id == string.Empty)
                 {
-                    Directory.CreateDirectory(collectionPath);
+                    id = Guid.NewGuid().ToString("N");
                 }
 
-                toStore["_id"] = id;
+                DebugHandler.TraceMessage("Collection Path: " + collectionPath, DebugSource.TASK, DebugType.INFO);
+                string pathparsing = PortablePath.Combine(collectionPath, id + ".jzip");
+                try
+                {
+                    if (!Directory.Exists(collectionPath))
+                    {
+                        Directory.CreateDirectory(collectionPath);
+                    }
 
-                byte[] zipped = await UtilityMethods.Zip(toStore.ToString());
-                await UtilityMethods.WriteBinaryFile(pathparsing, zipped);
+                    toStore["_id"] = id;
 
-                toReturn = true;
-            }
-            catch (IOException ioe)
-            {
-                DebugHandler.TraceMessage("Failed to write file: " + pathparsing + ", error: " + ioe.ToString(), DebugSource.TASK, DebugType.ERROR);
-            }
-            catch (Exception e)
-            {
-                DebugHandler.TraceMessage("Failed to write file: " + pathparsing + ", error: " + e.ToString(), DebugSource.TASK, DebugType.ERROR);
-            }          
-            
+                    byte[] zipped = UtilityMethods.Zip(toStore.ToString());
+                    UtilityMethods.WriteBinaryFile(pathparsing, zipped);
 
-            return toReturn;
+                    toReturn = true;
+                }
+                catch (IOException ioe)
+                {
+                    DebugHandler.TraceMessage("Failed to write file: " + pathparsing + ", error: " + ioe.ToString(), DebugSource.TASK, DebugType.ERROR);
+                }
+                catch (Exception e)
+                {
+                    DebugHandler.TraceMessage("Failed to write file: " + pathparsing + ", error: " + e.ToString(), DebugSource.TASK, DebugType.ERROR);
+                }
+
+                return toReturn;
+
+            });
+            DbQueries.Add(t);
+
+            await t;
+
+            return t.Result;
         }
 
         public async Task<bool> UpdateJObject(string collection, JObject toUpdate, string id, bool overwrite = false)

@@ -9,7 +9,7 @@ namespace LittleWeebLibrary.Handlers
 {
     public interface IAnimeRuleHandler
     {
-        Task<JObject> FilterAnimeRules(JObject niblData, string animeId);
+        Task<JObject> FilterAnimeRules(JObject niblData, string animeId, JObject customrules = null);
         Task<bool> AddRules(JObject customRules, string anime_id);
 
     }
@@ -17,13 +17,15 @@ namespace LittleWeebLibrary.Handlers
     {
         private readonly IDataBaseHandler DataBaseHandler;
         private readonly IDebugHandler DebugHandler;
+        private readonly INiblHandler NiblHandler;
         private JObject GlobalRules;
 
-        public AnimeRuleHandler(IDataBaseHandler dataBaseHandler, IDebugHandler debugHandler)
+        public AnimeRuleHandler(IDataBaseHandler dataBaseHandler, INiblHandler niblHandler, IDebugHandler debugHandler)
         {
             debugHandler.TraceMessage("Constructor Called", DebugSource.CONSTRUCTOR, DebugType.ENTRY_EXIT);
             DebugHandler = debugHandler;
             DataBaseHandler = dataBaseHandler;
+            NiblHandler = niblHandler;
             Init();
 
         }
@@ -45,49 +47,57 @@ namespace LittleWeebLibrary.Handlers
 
         }
 
-        public async Task<JObject> FilterAnimeRules(JObject niblData, string animeId)
+        public async Task<JObject> FilterAnimeRules(JObject niblData, string animeId, JObject customRules = null)
         {
-            DebugHandler.TraceMessage("FilterAnimeRules Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
-            DebugHandler.TraceMessage("For anime: " + animeId, DebugSource.TASK, DebugType.PARAMETERS);
+           // DebugHandler.TraceMessage("FilterAnimeRules Called.", DebugSource.TASK, DebugType.ENTRY_EXIT);
+           // DebugHandler.TraceMessage("For anime: " + animeId, DebugSource.TASK, DebugType.PARAMETERS);
 
-            JObject anime = await DataBaseHandler.GetJObject("anime", animeId);
+             JArray must_contain = new JArray();
+             JArray cannot_contain = new JArray();
+             JArray custom_search = new JArray();
+             JObject newResult = new JObject();
 
-            JObject localRules = anime.Value<JObject>("anime_rules");
 
-            JArray must_contain = new JArray();
-            JArray cannot_contain = new JArray();
 
             if (GlobalRules.ContainsKey(animeId)){
-                JObject globalRules = GlobalRules.Value<JObject>(animeId);
-                must_contain.Merge(globalRules.Value<JArray>("must_contain"));
-                cannot_contain.Merge(globalRules.Value<JArray>("cannot_contain"));
+                 JObject globalRules = GlobalRules.Value<JObject>(animeId);
+                 must_contain.Merge(globalRules.Value<JArray>("must_contain"));
+                 cannot_contain.Merge(globalRules.Value<JArray>("cannot_contain"));
+                 custom_search.Merge(globalRules.Value<JArray>("custom_search"));
 
 
                 DebugHandler.TraceMessage("Found global rules for anime : " + animeId, DebugSource.TASK, DebugType.INFO);
-                DebugHandler.TraceMessage("Must contain : " + must_contain.ToString(), DebugSource.TASK, DebugType.INFO);
-                DebugHandler.TraceMessage("Cannot contain : " + cannot_contain.ToString(), DebugSource.TASK, DebugType.INFO);
             }
 
-            if (localRules.Count > 0)
-            {
-                must_contain.Merge(localRules.Value<JArray>("must_contain"));
-                cannot_contain.Merge(localRules.Value<JArray>("cannot_contain"));
+             if (customRules != null)
+             {
+                 JObject localRules = customRules;
+                 if (localRules.Count > 0)
+                 {
+                     must_contain.Merge(localRules.Value<JArray>("must_contain"));
+                     cannot_contain.Merge(localRules.Value<JArray>("cannot_contain"));
+                     custom_search.Merge(localRules.Value<JArray>("custom_search"));
 
-                DebugHandler.TraceMessage("Found local rules for anime : " + animeId, DebugSource.TASK, DebugType.INFO);
-                DebugHandler.TraceMessage("Must contain : " + must_contain.ToString(), DebugSource.TASK, DebugType.INFO);
-                DebugHandler.TraceMessage("Cannot contain : " + cannot_contain.ToString(), DebugSource.TASK, DebugType.INFO);
+                     DebugHandler.TraceMessage("Found local rules for anime : " + animeId, DebugSource.TASK, DebugType.INFO);
+                }
             }
+            DebugHandler.TraceMessage("Must contain : " + must_contain.ToString(), DebugSource.TASK, DebugType.INFO);
+            DebugHandler.TraceMessage("Cannot contain : " + cannot_contain.ToString(), DebugSource.TASK, DebugType.INFO);
+            DebugHandler.TraceMessage("Custom Search : " + custom_search.ToString(), DebugSource.TASK, DebugType.INFO);
+
 
             if (must_contain.Count > 0 || cannot_contain.Count > 0)
-            {
-                JArray listWithPacks = niblData.Value<JArray>("packs");
+             {
+                 JObject[] listWithPacks = niblData.Value<JArray>("packs").ToObject<JObject[]>();
 
 
-                //DebugHandler.TraceMessage("Start iterating files from nibl with rules: " + listWithPacks.Count.ToString(), DebugSource.TASK, DebugType.INFO);
+                 //DebugHandler.TraceMessage("Start iterating files from nibl with rules: " + listWithPacks.Count.ToString(), DebugSource.TASK, DebugType.INFO);
 
-                JArray newListWithPacks = new JArray();
+                 JArray newListWithPacks = new JArray();
 
-                foreach (JObject pack in listWithPacks)
+
+                
+                foreach(JObject pack in listWithPacks)
                 {
                     if (pack.ContainsKey("FullFileName"))
                     {
@@ -95,7 +105,6 @@ namespace LittleWeebLibrary.Handlers
 
                         bool must_contain_check = true;
                         bool cannot_contain_check = true;
-
 
                         if (must_contain.Count > 0)
                         {
@@ -132,21 +141,47 @@ namespace LittleWeebLibrary.Handlers
 
                         if (must_contain_check && cannot_contain_check)
                         {
-                           // DebugHandler.TraceMessage("File with filename " + episodeFileName + " passes rule check!", DebugSource.TASK, DebugType.INFO);
+                            //  DebugHandler.TraceMessage("File with filename " + episodeFileName + " passes rule check!", DebugSource.TASK, DebugType.INFO);
                             newListWithPacks.Add(pack);
                         }
                     }
                 }
-                niblData["packs"] = newListWithPacks;
 
-                DebugHandler.TraceMessage("Finished parsing rules, new list with files size: " + newListWithPacks.Count.ToString(), DebugSource.TASK, DebugType.INFO);
-                return niblData;
+
+              
+
+                 //newResult["packs"] = newListWithPacks;
+                 DebugHandler.TraceMessage("Finished parsing rules, new list with files size: " + newListWithPacks.Count.ToString(), DebugSource.TASK, DebugType.INFO);
+
+             }
+             else
+             {
+                 DebugHandler.TraceMessage("No rules found for anime with id: " + animeId + ", returning unparsed list.", DebugSource.TASK, DebugType.INFO);
+                 newResult = niblData;
+             }
+
+
+            if (custom_search.Count > 0)
+            {
+                foreach (string searchQuery in custom_search)
+                {
+                    if (searchQuery != string.Empty)
+                    {
+                        JObject niblSearchResult = await NiblHandler.SearchNibl(searchQuery);
+                        niblData.Merge(niblSearchResult);
+                    }
+                }
+
+                DebugHandler.TraceMessage("Finished parsing custom_search,  new list with files size: " + niblData.Count.ToString(), DebugSource.TASK, DebugType.INFO);
             }
             else
             {
-                DebugHandler.TraceMessage("No rules found for anime with id: " + animeId + ", returning unparsed list.", DebugSource.TASK, DebugType.INFO);
-                return niblData;
+
+                DebugHandler.TraceMessage("No custom_search found for animewith id: " + animeId + ", returning unparsed list.", DebugSource.TASK, DebugType.INFO);
             }
+
+            return niblData;
+            
         }
 
         private async void Init()

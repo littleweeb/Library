@@ -102,89 +102,79 @@ namespace LittleWeebLibrary.StaticClasses
             }
         }
 
-        public static async Task <byte[]> Zip(string str)
+        public static byte[] Zip(string str)
         {
             byte[] bytes = Encoding.UTF8.GetBytes(str);
 
-            await Task.Run(() => {
-                using (var msi = new MemoryStream(bytes))
-                using (var mso = new MemoryStream())
+            using (var msi = new MemoryStream(bytes))
+            using (var mso = new MemoryStream())
+            {
+                using (var gs = new GZipStream(mso, CompressionMode.Compress))
                 {
-                    using (var gs = new GZipStream(mso, CompressionMode.Compress))
-                    {
-                        //msi.CopyTo(gs);
-                        CopyTo(msi, gs);
-                    }
-
-                    bytes = mso.ToArray();
+                    //msi.CopyTo(gs);
+                    CopyTo(msi, gs);
                 }
 
-            });
+                bytes = mso.ToArray();
+            }
+
           
             return bytes;
         }
 
-        public static async Task<string> Unzip(byte[] bytes)
+        public static string Unzip(byte[] bytes)
         {
             string toreturn = string.Empty;
-            await Task.Run(() =>
+            using (var msi = new MemoryStream(bytes))
+            using (var mso = new MemoryStream())
             {
-                using (var msi = new MemoryStream(bytes))
-                using (var mso = new MemoryStream())
+                using (var gs = new GZipStream(msi, CompressionMode.Decompress))
                 {
-                    using (var gs = new GZipStream(msi, CompressionMode.Decompress))
-                    {
-                        //gs.CopyTo(mso);
-                        CopyTo(gs, mso);
-                    }
-
-                    toreturn = Encoding.UTF8.GetString(mso.ToArray());
+                    //gs.CopyTo(mso);
+                    CopyTo(gs, mso);
                 }
-            });
+
+                toreturn = Encoding.UTF8.GetString(mso.ToArray());
+            }
 
             return toreturn;
         }
 
 
-        public static async Task<bool> WriteBinaryFile(string path, byte[] value)
+        public static bool WriteBinaryFile(string path, byte[] value)
         {
             bool toreturn = false;
-            await Task.Run(() =>
+            try
             {
-                try
+                using (BinaryWriter writer = new BinaryWriter(File.Open(path, FileMode.OpenOrCreate, System.IO.FileAccess.ReadWrite, FileShare.ReadWrite)))
                 {
-                    using (BinaryWriter writer = new BinaryWriter(File.Open(path, FileMode.OpenOrCreate, System.IO.FileAccess.ReadWrite)))
-                    {
-                        writer.Write(value);
-                    }
-                    toreturn = true;
+                    writer.Write(value);
                 }
-                catch
-                {
-                    toreturn = false;
-                }
-            });
+                toreturn = true;
+            }
+            catch
+            {
+                toreturn = false;
+            }
             return toreturn;
         }
 
-        public static async Task<byte[]> ReadBinaryFile(string path)
+        public static byte[] ReadBinaryFile(string path)
         {
             byte[] value = new byte[0];
-            await Task.Run(() =>
+          
+            using (BinaryReader reader = new BinaryReader(File.Open(path, FileMode.OpenOrCreate, System.IO.FileAccess.ReadWrite, FileShare.ReadWrite)))
             {
-                using (BinaryReader reader = new BinaryReader(File.Open(path, FileMode.OpenOrCreate, System.IO.FileAccess.ReadWrite)))
+                const int bufferSize = 4096;
+                using (var ms = new MemoryStream())
                 {
-                    const int bufferSize = 4096;
-                    using (var ms = new MemoryStream())
-                    {
-                        byte[] buffer = new byte[bufferSize];
-                        int count;
-                        while ((count = reader.Read(buffer, 0, buffer.Length)) != 0)
-                            ms.Write(buffer, 0, count);
-                        value = ms.ToArray();
-                    }
+                    byte[] buffer = new byte[bufferSize];
+                    int count;
+                    while ((count = reader.Read(buffer, 0, buffer.Length)) != 0)
+                        ms.Write(buffer, 0, count);
+                    value = ms.ToArray();
                 }
-            });
+            }
             return value;
         }
 
